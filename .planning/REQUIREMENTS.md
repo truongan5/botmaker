@@ -25,13 +25,13 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Security
 
 - [ ] **SEC-01**: UI requires HTTP Basic Auth to access
-- [ ] **SEC-02**: Secrets stored as files with 0600 permissions
-- [ ] **SEC-03**: Each bot has isolated secrets directory (no sharing)
+- [x] **SEC-02**: Secrets stored as files with 0600 permissions
+- [x] **SEC-03**: Each bot has isolated secrets directory (no sharing)
 
 ### Infrastructure
 
 - [ ] **INF-01**: Minimal OpenClaw Docker image exists for bot containers
-- [ ] **INF-02**: SQLite database stores bot metadata
+- [x] **INF-02**: SQLite database stores bot metadata
 - [ ] **INF-03**: Health check endpoint available at /health
 
 ## v2 Requirements
@@ -75,9 +75,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INF-02 | Phase 1 | Pending |
-| SEC-02 | Phase 1 | Pending |
-| SEC-03 | Phase 1 | Pending |
+| INF-02 | Phase 1 | Complete |
+| SEC-02 | Phase 1 | Complete |
+| SEC-03 | Phase 1 | Complete |
 | INF-01 | Phase 2 | Pending |
 | BOT-03 | Phase 2 | Pending |
 | BOT-04 | Phase 2 | Pending |
@@ -101,4 +101,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-30*
-*Last updated: 2026-01-30 after roadmap creation*
+*Last updated: 2026-01-30 after Phase 1 completion*
