@@ -29,10 +29,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Secrets manager can create per-bot directories with 0700 permissions
   3. Secrets manager can write credential files with 0600 permissions
   4. Secrets manager can delete bot secrets directory on cleanup
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
+- [ ] 01-01-PLAN.md - Bot types and SQLite database module
+- [ ] 01-02-PLAN.md - Secrets manager with Unix permissions
 
 ### Phase 2: Docker Integration
 **Goal**: Container lifecycle operations work independently of API layer
