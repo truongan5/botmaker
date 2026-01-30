@@ -45,10 +45,11 @@ Plans:
   3. DockerService can start, stop, restart, and remove containers
   4. Container status can be inspected (running/stopped/error)
   5. Containers are labeled for BotMaker filtering (botmaker.managed=true)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD
+- [ ] 02-01-PLAN.md - DockerService implementation with container types and error handling
+- [ ] 02-02-PLAN.md - Docker integration verification with test script
 
 ### Phase 3: API Layer
 **Goal**: HTTP API exposes all bot operations with authentication and real-time logs
@@ -103,7 +104,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete | 2026-01-30 |
-| 2. Docker Integration | 0/? | Not started | - |
+| 2. Docker Integration | 0/2 | Not started | - |
 | 3. API Layer | 0/? | Not started | - |
 | 4. Frontend Dashboard | 0/? | Not started | - |
 | 5. MVP Polish | 0/? | Not started | - |
