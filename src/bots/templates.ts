@@ -51,6 +51,9 @@ function generateAuthProfiles(provider: string, apiKey: string): object {
  * Follows OpenClaw's expected config structure for gateway mode.
  */
 function generateOpenclawConfig(config: BotWorkspaceConfig): object {
+  // Format model as provider/model (e.g., "openai/gpt-4o")
+  const modelSpec = `${config.aiProvider}/${config.model}`;
+
   return {
     gateway: {
       mode: 'local',
@@ -66,6 +69,13 @@ function generateOpenclawConfig(config: BotWorkspaceConfig): object {
     channels: {
       [config.channel.type]: {
         enabled: true,
+      },
+    },
+    agents: {
+      defaults: {
+        model: {
+          primary: modelSpec,
+        },
       },
     },
   };
