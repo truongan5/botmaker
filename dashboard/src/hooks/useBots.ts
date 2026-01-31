@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { Bot, CreateBotInput, CreateBotInputExtended } from '../types';
-import { fetchBots, createBot, createBotExtended, deleteBot, startBot, stopBot } from '../api';
+import type { Bot, CreateBotInput } from '../types';
+import { fetchBots, createBot, deleteBot, startBot, stopBot } from '../api';
 
 interface UseBotsReturn {
   bots: Bot[];
@@ -9,7 +9,7 @@ interface UseBotsReturn {
   error: string;
   clearError: () => void;
   refresh: () => Promise<void>;
-  handleCreate: (input: CreateBotInput | CreateBotInputExtended) => Promise<void>;
+  handleCreate: (input: CreateBotInput) => Promise<void>;
   handleStart: (hostname: string) => Promise<void>;
   handleStop: (hostname: string) => Promise<void>;
   handleDelete: (hostname: string) => Promise<void>;
@@ -41,12 +41,8 @@ export function useBots(): UseBotsReturn {
     return () => clearInterval(interval);
   }, [loadBots]);
 
-  const handleCreate = async (input: CreateBotInput | CreateBotInputExtended) => {
-    if ('providers' in input) {
-      await createBotExtended(input);
-    } else {
-      await createBot(input);
-    }
+  const handleCreate = async (input: CreateBotInput) => {
+    await createBot(input);
     await loadBots();
   };
 

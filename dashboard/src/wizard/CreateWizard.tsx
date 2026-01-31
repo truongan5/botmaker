@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CreateBotInputExtended } from '../types';
+import type { CreateBotInput } from '../types';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { WizardProvider, useWizard } from './context/WizardContext';
@@ -9,7 +9,7 @@ import './CreateWizard.css';
 
 interface CreateWizardProps {
   onClose: () => void;
-  onSubmit: (input: CreateBotInputExtended) => Promise<void>;
+  onSubmit: (input: CreateBotInput) => Promise<void>;
 }
 
 const STEPS = ['Template', 'Personality', 'Features', 'Configure', 'Review'];

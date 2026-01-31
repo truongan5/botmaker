@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useCallback, type ReactNode } from 'react';
-import type { SessionScope, CreateBotInputExtended } from '../../types';
+import type { SessionScope, CreateBotInput } from '../../types';
 import { getTemplate } from '../data/templates';
 import { getDefaultModel } from '../../config/providers';
 
@@ -240,7 +240,7 @@ export function validatePage(page: number, state: WizardState): ValidationResult
   }
 }
 
-export function buildCreateBotInput(state: WizardState): CreateBotInputExtended {
+export function buildCreateBotInput(state: WizardState): CreateBotInput {
   const providers = state.enabledProviders.map((providerId) => ({
     providerId,
     apiKey: state.providerConfigs[providerId]?.apiKey || '',
@@ -279,7 +279,7 @@ interface WizardContextValue {
   state: WizardState;
   dispatch: React.Dispatch<WizardAction>;
   validate: (page: number) => ValidationResult;
-  buildInput: () => CreateBotInputExtended;
+  buildInput: () => CreateBotInput;
 }
 
 const WizardContext = createContext<WizardContextValue | null>(null);

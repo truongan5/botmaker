@@ -25,20 +25,6 @@ export interface Bot {
   container_status?: ContainerStatus | null;
 }
 
-export interface CreateBotInput {
-  name: string;
-  ai_provider: string;
-  model: string;
-  channel_type: 'telegram' | 'discord';
-  channel_token: string;
-  api_key: string;
-  persona: {
-    name: string;
-    identity: string;
-    description: string;
-  };
-}
-
 export interface ContainerStats {
   hostname: string;
   name: string;
@@ -87,7 +73,7 @@ export interface ChannelConfigInput {
   token: string;
 }
 
-export interface CreateBotInputExtended {
+export interface CreateBotInput {
   name: string;
   hostname: string;
   emoji: string;

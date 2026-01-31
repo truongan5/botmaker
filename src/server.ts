@@ -31,23 +31,9 @@ import type { BotStatus } from './types/bot.js';
 
 const docker = new DockerService();
 
-interface CreateBotBody {
-  name: string;
-  ai_provider: string;
-  model: string;
-  channel_type: 'telegram' | 'discord';
-  channel_token: string;
-  api_key: string;
-  persona: {
-    name: string;
-    identity: string;
-    description: string;
-  };
-}
-
 type SessionScope = 'user' | 'channel' | 'global';
 
-interface CreateBotBodyExtended {
+interface CreateBotBody {
   name: string;
   hostname: string;
   emoji: string;
@@ -67,10 +53,6 @@ interface CreateBotBodyExtended {
     sandboxTimeout?: number;
     sessionScope: SessionScope;
   };
-}
-
-function isExtendedBody(body: CreateBotBody | CreateBotBodyExtended): body is CreateBotBodyExtended {
-  return 'providers' in body && Array.isArray(body.providers);
 }
 
 /**
@@ -157,201 +139,76 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   // Create bot
-  server.post<{ Body: CreateBotBody | CreateBotBodyExtended }>('/api/bots', async (request, reply) => {
+  server.post<{ Body: CreateBotBody }>('/api/bots', async (request, reply) => {
     const body = request.body;
 
-    // Handle extended format (new wizard)
-    if (isExtendedBody(body)) {
-      // Validate extended format
-      if (!body.name) {
-        reply.code(400);
-        return { error: 'Missing required field: name' };
-      }
-
-      if (!body.hostname) {
-        reply.code(400);
-        return { error: 'Missing required field: hostname' };
-      }
-
-      // Validate hostname format (DNS-compatible, max 64 chars)
-      if (!/^[a-z0-9-]{1,64}$/.test(body.hostname)) {
-        reply.code(400);
-        return { error: 'Hostname must be 1-64 lowercase letters, numbers, and hyphens' };
-      }
-
-      if (!body.providers || body.providers.length === 0) {
-        reply.code(400);
-        return { error: 'At least one provider is required' };
-      }
-
-      if (!body.channels || body.channels.length === 0) {
-        reply.code(400);
-        return { error: 'At least one channel is required' };
-      }
-
-      // Check for duplicate hostname
-      if (getBotByHostname(body.hostname)) {
-        reply.code(409);
-        return { error: 'Bot with this hostname already exists' };
-      }
-
-      // Use primary provider or first provider
-      const primaryProvider = body.providers.find(p => p.providerId === body.primaryProvider) || body.providers[0];
-      const primaryChannel = body.channels[0];
-
-      // Get next available port
-      const port = getNextBotPort(config.botPortStart);
-      const gatewayToken = randomBytes(32).toString('hex');
-
-      // Create bot record
-      const bot = createBot({
-        name: body.name,
-        hostname: body.hostname,
-        ai_provider: primaryProvider.providerId,
-        model: primaryProvider.model,
-        channel_type: primaryChannel.channelType as 'telegram' | 'discord',
-        port,
-        gateway_token: gatewayToken,
-      });
-
-      try {
-        // Store secrets for all providers (using hostname for path)
-        for (const provider of body.providers) {
-          const keyName = provider.providerId === primaryProvider.providerId
-            ? 'AI_API_KEY'
-            : `${provider.providerId.toUpperCase()}_API_KEY`;
-          writeSecret(bot.hostname, keyName, provider.apiKey);
-        }
-
-        // Store channel tokens
-        for (const channel of body.channels) {
-          const tokenName = channel.channelType === 'telegram' ? 'TELEGRAM_TOKEN'
-            : channel.channelType === 'discord' ? 'DISCORD_TOKEN'
-            : `${channel.channelType.toUpperCase()}_TOKEN`;
-          writeSecret(bot.hostname, tokenName, channel.token);
-        }
-
-        // Create workspace with extended persona (use soulMarkdown)
-        createBotWorkspace(config.dataDir, {
-          botId: bot.id,
-          botHostname: bot.hostname,
-          botName: body.name,
-          aiProvider: primaryProvider.providerId,
-          apiKey: primaryProvider.apiKey,
-          model: primaryProvider.model,
-          channel: {
-            type: primaryChannel.channelType as 'telegram' | 'discord',
-            token: primaryChannel.token,
-          },
-          persona: {
-            name: body.persona.name,
-            identity: body.persona.soulMarkdown || '',
-            description: body.emoji || '',
-          },
-          port,
-        });
-
-        // Build environment (using hostname for paths)
-        const hostWorkspacePath = join(hostDataDir, 'bots', bot.hostname);
-        const hostSecretsPath = join(hostSecretsDir, bot.hostname);
-        const environment = [
-          `BOT_ID=${bot.id}`,
-          `BOT_NAME=${body.name}`,
-          `AI_PROVIDER=${primaryProvider.providerId}`,
-          `AI_MODEL=${primaryProvider.model}`,
-          `PORT=${port}`,
-        ];
-
-        // Add channel tokens
-        for (const channel of body.channels) {
-          if (channel.channelType === 'telegram') {
-            environment.push(`TELEGRAM_BOT_TOKEN=${channel.token}`);
-          } else if (channel.channelType === 'discord') {
-            environment.push(`DISCORD_TOKEN=${channel.token}`);
-          }
-        }
-
-        const containerId = await docker.createContainer(bot.hostname, bot.id, {
-          image: config.openclawImage,
-          environment,
-          port,
-          hostWorkspacePath,
-          hostSecretsPath,
-          gatewayToken,
-        });
-
-        updateBot(bot.id, { container_id: containerId });
-        await docker.startContainer(bot.hostname);
-        updateBot(bot.id, { status: 'running' });
-
-        const updatedBot = getBot(bot.id);
-        reply.code(201);
-        return updatedBot;
-      } catch (err) {
-        try { await docker.removeContainer(bot.hostname); } catch {}
-        deleteBotWorkspace(config.dataDir, bot.hostname);
-        deleteBotSecrets(bot.hostname);
-        deleteBot(bot.id);
-
-        if (err instanceof ContainerError) {
-          reply.code(500);
-          return { error: `Container error: ${err.message}` };
-        }
-        throw err;
-      }
-    }
-
-    // Handle legacy format (original wizard)
     // Validate required fields
-    if (!body.name || !body.ai_provider || !body.model || !body.channel_type) {
+    if (!body.name) {
       reply.code(400);
-      return { error: 'Missing required fields: name, ai_provider, model, channel_type' };
+      return { error: 'Missing required field: name' };
     }
 
-    if (!body.channel_token || !body.api_key) {
+    if (!body.hostname) {
       reply.code(400);
-      return { error: 'Missing required secrets: channel_token, api_key' };
+      return { error: 'Missing required field: hostname' };
     }
 
-    if (!body.persona?.name || !body.persona?.identity || !body.persona?.description) {
+    // Validate hostname format (DNS-compatible, max 64 chars)
+    if (!/^[a-z0-9-]{1,64}$/.test(body.hostname)) {
       reply.code(400);
-      return { error: 'Missing persona fields: name, identity, description' };
+      return { error: 'Hostname must be 1-64 lowercase letters, numbers, and hyphens' };
     }
 
-    // Legacy format: name was DNS-compatible, use it as hostname
-    const hostname = body.name;
+    if (!body.providers || body.providers.length === 0) {
+      reply.code(400);
+      return { error: 'At least one provider is required' };
+    }
+
+    if (!body.channels || body.channels.length === 0) {
+      reply.code(400);
+      return { error: 'At least one channel is required' };
+    }
 
     // Check for duplicate hostname
-    if (getBotByHostname(hostname)) {
+    if (getBotByHostname(body.hostname)) {
       reply.code(409);
       return { error: 'Bot with this hostname already exists' };
     }
 
-    // Get next available port before creating bot record
-    const port = getNextBotPort(config.botPortStart);
+    // Use primary provider or first provider
+    const primaryProvider = body.providers.find(p => p.providerId === body.primaryProvider) || body.providers[0];
+    const primaryChannel = body.channels[0];
 
-    // Generate gateway token for OpenClaw authentication
+    // Get next available port
+    const port = getNextBotPort(config.botPortStart);
     const gatewayToken = randomBytes(32).toString('hex');
 
-    // Create bot record with port and gateway token
+    // Create bot record
     const bot = createBot({
       name: body.name,
-      hostname,
-      ai_provider: body.ai_provider,
-      model: body.model,
-      channel_type: body.channel_type,
+      hostname: body.hostname,
+      ai_provider: primaryProvider.providerId,
+      model: primaryProvider.model,
+      channel_type: primaryChannel.channelType as 'telegram' | 'discord',
       port,
       gateway_token: gatewayToken,
     });
 
     try {
-      // Store secrets (using hostname for path)
-      writeSecret(bot.hostname, 'AI_API_KEY', body.api_key);
+      // Store secrets for all providers
+      for (const provider of body.providers) {
+        const keyName = provider.providerId === primaryProvider.providerId
+          ? 'AI_API_KEY'
+          : `${provider.providerId.toUpperCase()}_API_KEY`;
+        writeSecret(bot.hostname, keyName, provider.apiKey);
+      }
 
-      if (body.channel_type === 'telegram') {
-        writeSecret(bot.hostname, 'TELEGRAM_TOKEN', body.channel_token);
-      } else if (body.channel_type === 'discord') {
-        writeSecret(bot.hostname, 'DISCORD_TOKEN', body.channel_token);
+      // Store channel tokens
+      for (const channel of body.channels) {
+        const tokenName = channel.channelType === 'telegram' ? 'TELEGRAM_TOKEN'
+          : channel.channelType === 'discord' ? 'DISCORD_TOKEN'
+          : `${channel.channelType.toUpperCase()}_TOKEN`;
+        writeSecret(bot.hostname, tokenName, channel.token);
       }
 
       // Create workspace
@@ -359,34 +216,39 @@ export async function buildServer(): Promise<FastifyInstance> {
         botId: bot.id,
         botHostname: bot.hostname,
         botName: body.name,
-        aiProvider: body.ai_provider,
-        apiKey: body.api_key,
-        model: body.model,
+        aiProvider: primaryProvider.providerId,
+        apiKey: primaryProvider.apiKey,
+        model: primaryProvider.model,
         channel: {
-          type: body.channel_type,
-          token: body.channel_token,
+          type: primaryChannel.channelType as 'telegram' | 'discord',
+          token: primaryChannel.token,
         },
-        persona: body.persona,
+        persona: {
+          name: body.persona.name,
+          identity: body.persona.soulMarkdown || '',
+          description: body.emoji || '',
+        },
         port,
       });
 
-      // Create container (using hostname for paths and container name)
+      // Build environment
       const hostWorkspacePath = join(hostDataDir, 'bots', bot.hostname);
       const hostSecretsPath = join(hostSecretsDir, bot.hostname);
-      // Build environment variables including channel-specific tokens
       const environment = [
         `BOT_ID=${bot.id}`,
         `BOT_NAME=${body.name}`,
-        `AI_PROVIDER=${body.ai_provider}`,
-        `AI_MODEL=${body.model}`,
+        `AI_PROVIDER=${primaryProvider.providerId}`,
+        `AI_MODEL=${primaryProvider.model}`,
         `PORT=${port}`,
       ];
 
-      // Add channel token as environment variable (OpenClaw reads these)
-      if (body.channel_type === 'telegram') {
-        environment.push(`TELEGRAM_BOT_TOKEN=${body.channel_token}`);
-      } else if (body.channel_type === 'discord') {
-        environment.push(`DISCORD_TOKEN=${body.channel_token}`);
+      // Add channel tokens
+      for (const channel of body.channels) {
+        if (channel.channelType === 'telegram') {
+          environment.push(`TELEGRAM_BOT_TOKEN=${channel.token}`);
+        } else if (channel.channelType === 'discord') {
+          environment.push(`DISCORD_TOKEN=${channel.token}`);
+        }
       }
 
       const containerId = await docker.createContainer(bot.hostname, bot.id, {
@@ -398,10 +260,7 @@ export async function buildServer(): Promise<FastifyInstance> {
         gatewayToken,
       });
 
-      // Update bot with container ID
       updateBot(bot.id, { container_id: containerId });
-
-      // Start container
       await docker.startContainer(bot.hostname);
       updateBot(bot.id, { status: 'running' });
 
@@ -409,7 +268,6 @@ export async function buildServer(): Promise<FastifyInstance> {
       reply.code(201);
       return updatedBot;
     } catch (err) {
-      // Cleanup on failure - remove all resources
       try { await docker.removeContainer(bot.hostname); } catch {}
       deleteBotWorkspace(config.dataDir, bot.hostname);
       deleteBotSecrets(bot.hostname);
@@ -419,7 +277,6 @@ export async function buildServer(): Promise<FastifyInstance> {
         reply.code(500);
         return { error: `Container error: ${err.message}` };
       }
-
       throw err;
     }
   });
