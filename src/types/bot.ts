@@ -7,6 +7,7 @@ export interface Bot {
   model: string;        // gpt-4, claude-3, etc.
   channel_type: string; // slack, discord, telegram, etc.
   container_id: string | null;
+  port: number | null;  // Allocated port for container
   status: BotStatus;
   created_at: string;   // ISO datetime
   updated_at: string;   // ISO datetime

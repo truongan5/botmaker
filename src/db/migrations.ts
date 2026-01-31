@@ -26,9 +26,12 @@ export function runMigrations(db: Database.Database): void {
     );
   }
 
-  // Future migrations go here:
-  // if (currentVersion < 1) {
-  //   db.exec('ALTER TABLE bots ADD COLUMN new_field TEXT');
-  //   db.prepare('INSERT INTO migrations (version, applied_at) VALUES (?, ?)').run(1, new Date().toISOString());
-  // }
+  // Migration v1: Add port column for gap-aware port allocation
+  if (currentVersion < 1) {
+    db.exec('ALTER TABLE bots ADD COLUMN port INTEGER');
+    db.prepare('INSERT INTO migrations (version, applied_at) VALUES (?, ?)').run(
+      1,
+      new Date().toISOString()
+    );
+  }
 }

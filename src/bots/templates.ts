@@ -4,7 +4,7 @@
  * Generate configuration files for OpenClaw bot workspaces.
  */
 
-import { mkdirSync, writeFileSync, chmodSync } from 'node:fs';
+import { mkdirSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 export interface BotPersona {
@@ -162,4 +162,16 @@ export function createBotWorkspace(dataDir: string, config: BotWorkspaceConfig):
  */
 export function getBotWorkspacePath(dataDir: string, botId: string): string {
   return join(dataDir, 'bots', botId);
+}
+
+/**
+ * Delete a bot's workspace directory.
+ * Safe to call even if the directory doesn't exist.
+ *
+ * @param dataDir - Root data directory
+ * @param botId - Bot UUID
+ */
+export function deleteBotWorkspace(dataDir: string, botId: string): void {
+  const botDir = join(dataDir, 'bots', botId);
+  rmSync(botDir, { recursive: true, force: true });
 }

@@ -7,6 +7,7 @@
 import { buildServer } from './server.js';
 import { getConfig } from './config.js';
 import { closeDb } from './db/index.js';
+import { listBots, updateBot } from './bots/store.js';
 
 async function main(): Promise<void> {
   const config = getConfig();
@@ -22,6 +23,14 @@ async function main(): Promise<void> {
   // Graceful shutdown
   const shutdown = async () => {
     console.log('\nShutting down...');
+
+    // Mark running bots as stopped in DB
+    // (containers persist via restart policy, but DB should reflect shutdown)
+    const running = listBots().filter(b => b.status === 'running');
+    for (const bot of running) {
+      updateBot(bot.id, { status: 'stopped' });
+    }
+
     await server.close();
     closeDb();
     process.exit(0);

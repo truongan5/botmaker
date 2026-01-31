@@ -13,6 +13,7 @@ export interface CreateBotInput {
   ai_provider: string;
   model: string;
   channel_type: string;
+  port: number;
 }
 
 export interface UpdateBotInput {
@@ -21,6 +22,7 @@ export interface UpdateBotInput {
   model?: string;
   channel_type?: string;
   container_id?: string | null;
+  port?: number | null;
   status?: BotStatus;
 }
 
@@ -36,11 +38,11 @@ export function createBot(input: CreateBotInput): Bot {
   const id = uuidv4();
 
   const stmt = db.prepare(`
-    INSERT INTO bots (id, name, ai_provider, model, channel_type, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO bots (id, name, ai_provider, model, channel_type, port, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  stmt.run(id, input.name, input.ai_provider, input.model, input.channel_type, 'created', now, now);
+  stmt.run(id, input.name, input.ai_provider, input.model, input.channel_type, input.port, 'created', now, now);
 
   return {
     id,
@@ -49,6 +51,7 @@ export function createBot(input: CreateBotInput): Bot {
     model: input.model,
     channel_type: input.channel_type,
     container_id: null,
+    port: input.port,
     status: 'created',
     created_at: now,
     updated_at: now,
@@ -105,7 +108,7 @@ export function updateBot(id: string, input: UpdateBotInput): Bot | null {
 
   // Build dynamic UPDATE query
   const updates: string[] = ['updated_at = ?'];
-  const values: (string | null)[] = [now];
+  const values: (string | number | null)[] = [now];
 
   if (input.name !== undefined) {
     updates.push('name = ?');
@@ -126,6 +129,10 @@ export function updateBot(id: string, input: UpdateBotInput): Bot | null {
   if (input.container_id !== undefined) {
     updates.push('container_id = ?');
     values.push(input.container_id);
+  }
+  if (input.port !== undefined) {
+    updates.push('port = ?');
+    values.push(input.port);
   }
   if (input.status !== undefined) {
     updates.push('status = ?');
@@ -159,7 +166,7 @@ export function deleteBot(id: string): boolean {
 
 /**
  * Get the next available port for a bot container.
- * Finds the highest used port and returns the next one.
+ * Finds the lowest available port by detecting gaps in used ports.
  *
  * @param startPort - Starting port number
  * @returns Next available port
@@ -167,9 +174,16 @@ export function deleteBot(id: string): boolean {
 export function getNextBotPort(startPort: number): number {
   const db = getDb();
 
-  // Count existing bots to determine next port
-  const stmt = db.prepare('SELECT COUNT(*) as count FROM bots');
-  const row = stmt.get() as { count: number };
+  // Get all used ports in ascending order
+  const stmt = db.prepare('SELECT port FROM bots WHERE port IS NOT NULL ORDER BY port');
+  const rows = stmt.all() as { port: number }[];
 
-  return startPort + row.count;
+  // Find first gap starting from startPort
+  let port = startPort;
+  for (const row of rows) {
+    if (row.port > port) break; // Found gap
+    if (row.port === port) port = row.port + 1;
+  }
+
+  return port;
 }

@@ -21,9 +21,10 @@ import {
   deleteBot,
   getNextBotPort,
 } from './bots/store.js';
-import { createBotWorkspace, getBotWorkspacePath } from './bots/templates.js';
+import { createBotWorkspace, getBotWorkspacePath, deleteBotWorkspace } from './bots/templates.js';
 import { writeSecret, deleteBotSecrets } from './secrets/manager.js';
 import { DockerService } from './services/DockerService.js';
+import { ReconciliationService } from './services/ReconciliationService.js';
 import { ContainerError } from './services/docker-errors.js';
 import type { BotStatus } from './types/bot.js';
 
@@ -80,6 +81,11 @@ export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({
     logger: true,
   });
+
+  // Run startup reconciliation
+  const reconciliation = new ReconciliationService(docker, config.dataDir, server.log);
+  const report = await reconciliation.reconcileOnStartup();
+  server.log.info({ report }, 'Startup reconciliation complete');
 
   // Health check
   server.get('/health', async () => {
@@ -147,12 +153,16 @@ export async function buildServer(): Promise<FastifyInstance> {
       return { error: 'Bot with this name already exists' };
     }
 
-    // Create bot record
+    // Get next available port before creating bot record
+    const port = getNextBotPort(config.botPortStart);
+
+    // Create bot record with port
     const bot = createBot({
       name: body.name,
       ai_provider: body.ai_provider,
       model: body.model,
       channel_type: body.channel_type,
+      port,
     });
 
     try {
@@ -164,9 +174,6 @@ export async function buildServer(): Promise<FastifyInstance> {
       } else if (body.channel_type === 'discord') {
         writeSecret(bot.id, 'DISCORD_TOKEN', body.channel_token);
       }
-
-      // Get next available port
-      const port = getNextBotPort(config.botPortStart);
 
       // Create workspace
       createBotWorkspace(config.dataDir, {
@@ -213,7 +220,9 @@ export async function buildServer(): Promise<FastifyInstance> {
       reply.code(201);
       return updatedBot;
     } catch (err) {
-      // Cleanup on failure
+      // Cleanup on failure - remove all resources
+      try { await docker.removeContainer(bot.id); } catch {}
+      deleteBotWorkspace(config.dataDir, bot.id);
       deleteBotSecrets(bot.id);
       deleteBot(bot.id);
 
@@ -244,6 +253,9 @@ export async function buildServer(): Promise<FastifyInstance> {
         return { error: `Failed to remove container: ${err.message}` };
       }
     }
+
+    // Delete workspace directory
+    deleteBotWorkspace(config.dataDir, bot.id);
 
     // Delete secrets
     deleteBotSecrets(bot.id);
@@ -298,6 +310,12 @@ export async function buildServer(): Promise<FastifyInstance> {
       }
       throw err;
     }
+  });
+
+  // Admin cleanup endpoint - removes orphaned containers, workspaces, and secrets
+  server.post('/api/admin/cleanup', async () => {
+    const cleanupReport = await reconciliation.cleanupOrphans();
+    return { success: true, ...cleanupReport };
   });
 
   // Serve static dashboard files (if built)
