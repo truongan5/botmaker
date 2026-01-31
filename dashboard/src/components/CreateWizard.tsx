@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { CreateBotInput } from '../types';
+import { AI_PROVIDERS, MODELS, getDefaultModel } from '../config/providers';
 
 interface CreateWizardProps {
   onClose: () => void;
@@ -7,18 +8,6 @@ interface CreateWizardProps {
 }
 
 const STEPS = ['Name & Model', 'API Key', 'Channel', 'Persona', 'Review'];
-
-const AI_PROVIDERS = [
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'anthropic', label: 'Anthropic' },
-  { value: 'google', label: 'Google' },
-];
-
-const MODELS: Record<string, string[]> = {
-  openai: ['gpt-4', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-  anthropic: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
-  google: ['gemini-pro', 'gemini-ultra'],
-};
 
 export default function CreateWizard({ onClose, onSubmit }: CreateWizardProps) {
   const [step, setStep] = useState(0);
@@ -28,7 +17,7 @@ export default function CreateWizard({ onClose, onSubmit }: CreateWizardProps) {
   const [formData, setFormData] = useState<CreateBotInput>({
     name: '',
     ai_provider: 'openai',
-    model: 'gpt-4',
+    model: 'gpt-5.2',
     channel_type: 'telegram',
     channel_token: '',
     api_key: '',
@@ -141,7 +130,7 @@ export default function CreateWizard({ onClose, onSubmit }: CreateWizardProps) {
                 value={formData.ai_provider}
                 onChange={(e) => {
                   updateField('ai_provider', e.target.value);
-                  updateField('model', MODELS[e.target.value]?.[0] || '');
+                  updateField('model', getDefaultModel(e.target.value));
                 }}
               >
                 {AI_PROVIDERS.map((p) => (
