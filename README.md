@@ -2,13 +2,57 @@
 
 Web UI for managing OpenClaw AI chatbots in Docker containers.
 
-## Features
+## Key Features
+
+### Zero-Trust API Key Architecture
+
+BotMaker isolates API keys from bot containers entirely. Bots never see your real API credentials.
+
+**Why this matters:** API key leaks are rampant in AI applications. Prompt injection attacks, compromised dependencies, and overly-verbose logging all create opportunities for keys to leak. With BotMaker:
+
+- Bot containers receive only a proxy URL, never real API keys
+- A separate **keyring-proxy** container holds encrypted credentials
+- All AI provider requests route through the proxy, which injects credentials at the network edge
+- Even a fully compromised bot cannot extract your API keys
+
+### Additional Features
 
 - **Multi-AI Provider Support** - OpenAI, Anthropic, Google Gemini, Venice
 - **Multi-Channel Wizard** - Telegram, Discord (all others supported by chatting with your bot post-setup)
 - **Container Isolation** - Each bot runs in its own Docker container
 - **Dashboard** - Creation wizard, monitoring, diagnostics
-- **Secrets Management** - Per-bot credential isolation
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Docker Network                          │
+│                                                             │
+│  ┌─────────────┐     ┌───────────────┐     ┌─────────────┐ │
+│  │   Bot A     │     │ keyring-proxy │     │  OpenAI     │ │
+│  │             │────▶│               │────▶│  Anthropic  │ │
+│  │ (no keys)   │     │ (has keys)    │     │  etc.       │ │
+│  └─────────────┘     └───────────────┘     └─────────────┘ │
+│                             ▲                               │
+│  ┌─────────────┐            │                               │
+│  │   Bot B     │────────────┘                               │
+│  │ (no keys)   │                                            │
+│  └─────────────┘                                            │
+│                                                             │
+│  ┌─────────────┐                                            │
+│  │  BotMaker   │  ◀── Dashboard UI                          │
+│  │  (manager)  │      Bot lifecycle                         │
+│  └─────────────┘      Key management                        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Components:**
+
+| Container | Purpose | Has API Keys? |
+|-----------|---------|---------------|
+| **botmaker** | Dashboard, bot lifecycle management | No (admin only) |
+| **keyring-proxy** | Credential storage, request proxying | Yes (encrypted) |
+| **bot containers** | Run OpenClaw chatbots | No |
 
 ## Requirements
 
@@ -18,12 +62,26 @@ Web UI for managing OpenClaw AI chatbots in Docker containers.
 
 ## Quick Start
 
+### Docker Compose (Recommended)
+
+```bash
+# Build and run
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop
+docker compose down
+```
+
 ### Development
 
 ```bash
 # Install dependencies
 npm install
 cd dashboard && npm install && cd ..
+cd proxy && npm install && cd ..
 
 # Start backend (with hot reload)
 npm run dev
@@ -40,19 +98,6 @@ npm run build:all
 
 # Start
 npm start
-```
-
-### Docker Compose
-
-```bash
-# Build and run
-docker compose up -d
-
-# View logs
-docker compose logs -f
-
-# Stop
-docker compose down
 ```
 
 ## Configuration
@@ -89,7 +134,7 @@ docker compose down
 | GET | `/api/admin/orphans` | Preview orphaned resources |
 | POST | `/api/admin/cleanup` | Clean orphaned containers/workspaces/secrets |
 
-## Architecture
+## Project Structure
 
 ```
 botmaker/
@@ -98,26 +143,16 @@ botmaker/
 │   ├── db/               # SQLite database
 │   ├── secrets/          # Per-bot secret management
 │   └── services/         # Docker container management
+├── proxy/                # Keyring proxy service
+│   └── src/              # Credential storage & request proxying
 ├── dashboard/            # Frontend (React + Vite)
 │   └── src/components/   # UI components
 ├── data/                 # Database and bot workspaces
-├── secrets/              # Per-bot secret files
+├── secrets/              # Shared secrets (master key, admin token)
 └── scripts/              # Test and utility scripts
 ```
 
-### Components
-
-- **Backend**: Fastify server with SQLite for bot metadata, Dockerode for container orchestration
-- **Frontend**: React SPA with Vite, served statically in production
-- **Secrets**: File-based per-bot credential isolation, mounted read-only into containers
-
 ## Development
-
-### Project Structure
-
-- `src/` - TypeScript backend source
-- `dashboard/` - React frontend (separate npm project)
-- `scripts/` - Test and utility scripts
 
 ### Running Tests
 
