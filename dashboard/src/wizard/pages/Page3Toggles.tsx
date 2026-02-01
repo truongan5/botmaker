@@ -32,6 +32,16 @@ export function Page3Toggles() {
     dispatch({ type: 'SET_FEATURE', feature: 'sessionScope', value: scope });
   };
 
+  const handleTagsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Parse comma-separated tags, trim whitespace
+    const tags = value
+      .split(',')
+      .map((t) => t.trim().toLowerCase())
+      .filter((t) => t.length > 0 && /^[a-z0-9-]+$/.test(t));
+    dispatch({ type: 'SET_ROUTING_TAGS', tags });
+  };
+
   return (
     <div className="page3-toggles">
       <section className="page3-section">
@@ -157,6 +167,30 @@ export function Page3Toggles() {
               </label>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="page3-section">
+        <h4 className="page3-section-title">API Routing Tags</h4>
+        <div className="page3-tags-field">
+          <input
+            type="text"
+            className="wizard-input"
+            placeholder="prod, high-priority"
+            defaultValue={state.routingTags.join(', ')}
+            onChange={handleTagsChange}
+          />
+          <span className="page3-tags-hint">
+            Comma-separated tags for API key routing. Keys with matching tags will be used first.
+            Leave empty to use default keys.
+          </span>
+          {state.routingTags.length > 0 && (
+            <div className="page3-tags-preview">
+              {state.routingTags.map((tag) => (
+                <span key={tag} className="page3-tag-badge">{tag}</span>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>

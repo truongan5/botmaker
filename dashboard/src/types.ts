@@ -86,4 +86,29 @@ export interface CreateBotInput {
     soulMarkdown: string;
   };
   features: WizardFeatures;
+  tags?: string[];
+}
+
+// Proxy key types
+export interface ProxyKey {
+  id: string;
+  vendor: string;
+  label: string | null;
+  tag: string | null;
+  created_at: number;
+}
+
+export interface AddKeyInput {
+  vendor: string;
+  secret: string;
+  label?: string;
+  tag?: string;
+}
+
+export interface ProxyHealthResponse {
+  status?: string;
+  keyCount?: number;
+  botCount?: number;
+  configured: boolean;
+  error?: string;
 }

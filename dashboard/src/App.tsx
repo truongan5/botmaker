@@ -3,6 +3,7 @@ import { useBots } from './hooks/useBots';
 import { Shell, Header, TabNav, type TabId } from './layout';
 import { DashboardTab } from './dashboard';
 import { DiagnosticsTab } from './diagnostics';
+import { SecretsTab } from './secrets';
 import { CreateWizard } from './wizard';
 
 export default function App() {
@@ -43,6 +44,8 @@ export default function App() {
       )}
 
       {activeTab === 'diagnostics' && <DiagnosticsTab />}
+
+      {activeTab === 'secrets' && <SecretsTab />}
 
       {showWizard && (
         <CreateWizard

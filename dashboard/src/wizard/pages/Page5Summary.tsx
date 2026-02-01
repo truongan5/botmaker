@@ -116,6 +116,16 @@ export function Page5Summary() {
             <span className="page5-label">Session Scope</span>
             <span className="page5-value">{state.features.sessionScope}</span>
           </div>
+          {state.routingTags.length > 0 && (
+            <div className="page5-field page5-field--inline">
+              <span className="page5-label">Routing Tags</span>
+              <div className="page5-tags">
+                {state.routingTags.map((tag) => (
+                  <span key={tag} className="page5-tag">{tag}</span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </CollapsibleSection>
     </div>

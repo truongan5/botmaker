@@ -1,4 +1,4 @@
-import type { Bot, CreateBotInput, ContainerStats, OrphanReport, CleanupReport } from './types';
+import type { Bot, CreateBotInput, ContainerStats, OrphanReport, CleanupReport, ProxyKey, AddKeyInput, ProxyHealthResponse } from './types';
 
 const API_BASE = '/api';
 
@@ -72,4 +72,32 @@ export async function runCleanup(): Promise<CleanupReport> {
 export async function checkHealth(): Promise<{ status: string; timestamp: string }> {
   const response = await fetch('/health');
   return handleResponse<{ status: string; timestamp: string }>(response);
+}
+
+// Proxy key management
+export async function fetchProxyKeys(): Promise<ProxyKey[]> {
+  const response = await fetch(`${API_BASE}/proxy/keys`);
+  const data = await handleResponse<{ keys: ProxyKey[] }>(response);
+  return data.keys;
+}
+
+export async function addProxyKey(input: AddKeyInput): Promise<{ id: string }> {
+  const response = await fetch(`${API_BASE}/proxy/keys`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  return handleResponse<{ id: string }>(response);
+}
+
+export async function deleteProxyKey(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/proxy/keys/${id}`, {
+    method: 'DELETE',
+  });
+  await handleResponse<{ ok: boolean }>(response);
+}
+
+export async function fetchProxyHealth(): Promise<ProxyHealthResponse> {
+  const response = await fetch(`${API_BASE}/proxy/health`);
+  return handleResponse<ProxyHealthResponse>(response);
 }

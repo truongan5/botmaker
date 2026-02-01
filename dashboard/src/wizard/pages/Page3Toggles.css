@@ -99,3 +99,37 @@
   color: var(--text-primary);
   text-transform: capitalize;
 }
+
+/* Tags field */
+.page3-tags-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.page3-tags-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.page3-tags-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.page3-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius-sm);
+  background: var(--accent-primary-glow);
+  border: 1px solid var(--accent-primary);
+  color: var(--accent-primary);
+}

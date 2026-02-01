@@ -182,3 +182,24 @@
   background: var(--status-running);
   box-shadow: 0 0 6px var(--status-running-glow);
 }
+
+.page5-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.page5-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius-sm);
+  background: var(--accent-primary-glow);
+  border: 1px solid var(--accent-primary);
+  color: var(--accent-primary);
+}
