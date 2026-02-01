@@ -23,7 +23,6 @@ describe('templates', () => {
       botHostname: 'test-bot',
       botName: 'Test Bot',
       aiProvider: 'openai',
-      apiKey: 'sk-test-key-123',
       model: 'gpt-4',
       channel: { type: 'telegram', token: 'tg-token-123' },
       persona: {
@@ -68,25 +67,6 @@ describe('templates', () => {
       expect(existsSync(join(workspaceDir, 'IDENTITY.md'))).toBe(true);
       expect(existsSync(join(workspaceDir, 'AGENTS.md'))).toBe(true);
       expect(existsSync(join(workspaceDir, 'BOOTSTRAP.md'))).toBe(true);
-    });
-
-    it('should create auth-profiles.json', () => {
-      const config = createTestConfig();
-      createBotWorkspace(testDir, config);
-
-      const authProfilesPath = join(testDir, 'bots', config.botHostname, 'agents', 'main', 'agent', 'auth-profiles.json');
-      expect(existsSync(authProfilesPath)).toBe(true);
-
-      const authProfiles = JSON.parse(readFileSync(authProfilesPath, 'utf-8')) as {
-        version: number;
-        profiles: Record<string, { type: string; provider: string; key: string }>;
-      };
-      expect(authProfiles.version).toBe(1);
-      expect(authProfiles.profiles['openai:default']).toEqual({
-        type: 'api_key',
-        provider: 'openai',
-        key: 'sk-test-key-123',
-      });
     });
 
     it('should create openclaw.json without proxy', () => {

@@ -83,11 +83,10 @@ describe('WizardContext', () => {
         result.current.dispatch({
           type: 'SET_PROVIDER_CONFIG',
           providerId: 'openai',
-          config: { apiKey: 'sk-test', model: 'gpt-4' },
+          config: { model: 'gpt-4' },
         });
       });
 
-      expect(result.current.state.providerConfigs.openai.apiKey).toBe('sk-test');
       expect(result.current.state.providerConfigs.openai.model).toBe('gpt-4');
     });
 
@@ -204,7 +203,7 @@ describe('WizardContext', () => {
       expect(result.valid).toBe(false);
     });
 
-    it('page 3 requires API keys and tokens', () => {
+    it('page 3 requires tokens', () => {
       const state = {
         selectedTemplateId: null,
         botName: 'test-bot',
@@ -217,13 +216,13 @@ describe('WizardContext', () => {
         enabledChannels: ['telegram'],
         routingTags: [],
         features: { commands: true, tts: false, ttsVoice: 'alloy', sandbox: false, sandboxTimeout: 30, sessionScope: 'user' as const },
-        providerConfigs: { openai: { apiKey: '', model: 'gpt-4' } },
+        providerConfigs: { openai: { model: 'gpt-4' } },
         channelConfigs: { telegram: { token: '' } },
       };
 
       const result = validatePage(3, state);
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('API key');
+      expect(result.error).toContain('Token required');
     });
   });
 
@@ -241,7 +240,7 @@ describe('WizardContext', () => {
         enabledChannels: ['telegram'],
         routingTags: [],
         features: { commands: true, tts: false, ttsVoice: 'alloy', sandbox: false, sandboxTimeout: 30, sessionScope: 'user' as const },
-        providerConfigs: { openai: { apiKey: 'sk-123', model: 'gpt-4' } },
+        providerConfigs: { openai: { model: 'gpt-4' } },
         channelConfigs: { telegram: { token: 'tg-token' } },
       };
 
@@ -252,7 +251,6 @@ describe('WizardContext', () => {
       expect(input.emoji).toBe('🤖');
       expect(input.providers).toHaveLength(1);
       expect(input.providers[0].providerId).toBe('openai');
-      expect(input.providers[0].apiKey).toBe('sk-123');
       expect(input.channels).toHaveLength(1);
       expect(input.channels[0].channelType).toBe('telegram');
       expect(input.persona.soulMarkdown).toBe('# Soul\nHelpful assistant');

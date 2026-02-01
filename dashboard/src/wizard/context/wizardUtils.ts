@@ -19,7 +19,7 @@ export interface WizardState {
     sandboxTimeout: number;
     sessionScope: SessionScope;
   };
-  providerConfigs: Record<string, { apiKey: string; model: string }>;
+  providerConfigs: Record<string, { model: string }>;
   channelConfigs: Record<string, { token: string }>;
 }
 
@@ -65,12 +65,6 @@ export function validatePage(page: number, state: WizardState): ValidationResult
 
     case 3:
       // Config details
-      for (const providerId of state.enabledProviders) {
-        const config = state.providerConfigs[providerId];
-        if (!config?.apiKey?.trim()) {
-          return { valid: false, error: `API key required for ${providerId}` };
-        }
-      }
       for (const channelId of state.enabledChannels) {
         const config = state.channelConfigs[channelId];
         if (!config?.token?.trim()) {
@@ -91,7 +85,6 @@ export function validatePage(page: number, state: WizardState): ValidationResult
 export function buildCreateBotInput(state: WizardState): CreateBotInput {
   const providers = state.enabledProviders.map((providerId) => ({
     providerId,
-    apiKey: state.providerConfigs[providerId]?.apiKey || '',
     model: state.providerConfigs[providerId]?.model || '',
   }));
 

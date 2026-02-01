@@ -64,7 +64,7 @@ export function Page5Summary() {
                   <div className="page5-list-content">
                     <span className="page5-list-title">{provider?.label || providerId}</span>
                     <span className="page5-list-subtitle">
-                      Model: {config?.model || 'default'} | Key: {maskToken(config?.apiKey || '')}
+                      Model: {config?.model || 'default'}
                     </span>
                   </div>
                 </div>

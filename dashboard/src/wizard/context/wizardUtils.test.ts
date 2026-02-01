@@ -141,42 +141,21 @@ describe('validatePage', () => {
   });
 
   describe('page 3 (Config)', () => {
-    it('should require API key for each enabled provider', () => {
-      const state = createDefaultState();
-      state.enabledProviders = ['openai'];
-      state.enabledChannels = ['telegram'];
-      state.channelConfigs = { telegram: { token: 'bot-token' } };
-      const result = validatePage(3, state);
-      expect(result.valid).toBe(false);
-      expect(result.error).toBe('API key required for openai');
-    });
-
     it('should require token for each enabled channel', () => {
       const state = createDefaultState();
       state.enabledProviders = ['openai'];
       state.enabledChannels = ['telegram'];
-      state.providerConfigs = { openai: { apiKey: 'sk-123', model: 'gpt-4' } };
+      state.providerConfigs = { openai: { model: 'gpt-4' } };
       const result = validatePage(3, state);
       expect(result.valid).toBe(false);
       expect(result.error).toBe('Token required for telegram');
-    });
-
-    it('should require non-empty API key', () => {
-      const state = createDefaultState();
-      state.enabledProviders = ['openai'];
-      state.enabledChannels = ['telegram'];
-      state.providerConfigs = { openai: { apiKey: '   ', model: 'gpt-4' } };
-      state.channelConfigs = { telegram: { token: 'bot-token' } };
-      const result = validatePage(3, state);
-      expect(result.valid).toBe(false);
-      expect(result.error).toBe('API key required for openai');
     });
 
     it('should be valid with all configs provided', () => {
       const state = createDefaultState();
       state.enabledProviders = ['openai'];
       state.enabledChannels = ['telegram'];
-      state.providerConfigs = { openai: { apiKey: 'sk-123', model: 'gpt-4' } };
+      state.providerConfigs = { openai: { model: 'gpt-4' } };
       state.channelConfigs = { telegram: { token: 'bot-token' } };
       const result = validatePage(3, state);
       expect(result.valid).toBe(true);
@@ -187,8 +166,8 @@ describe('validatePage', () => {
       state.enabledProviders = ['openai', 'anthropic'];
       state.enabledChannels = ['telegram', 'discord'];
       state.providerConfigs = {
-        openai: { apiKey: 'sk-123', model: 'gpt-4' },
-        anthropic: { apiKey: 'sk-ant-123', model: 'claude-3' },
+        openai: { model: 'gpt-4' },
+        anthropic: { model: 'claude-3' },
       };
       state.channelConfigs = {
         telegram: { token: 'tg-token' },
@@ -225,7 +204,7 @@ describe('buildCreateBotInput', () => {
     state.soulMarkdown = 'I am a test bot.';
     state.enabledProviders = ['openai'];
     state.enabledChannels = ['telegram'];
-    state.providerConfigs = { openai: { apiKey: 'sk-123', model: 'gpt-4' } };
+    state.providerConfigs = { openai: { model: 'gpt-4' } };
     state.channelConfigs = { telegram: { token: 'bot-token' } };
 
     const result = buildCreateBotInput(state);
@@ -235,7 +214,7 @@ describe('buildCreateBotInput', () => {
       hostname: 'test-bot',
       emoji: '🤖',
       avatarUrl: undefined,
-      providers: [{ providerId: 'openai', apiKey: 'sk-123', model: 'gpt-4' }],
+      providers: [{ providerId: 'openai', model: 'gpt-4' }],
       primaryProvider: 'openai',
       channels: [{ channelType: 'telegram', token: 'bot-token' }],
       persona: {
@@ -261,7 +240,7 @@ describe('buildCreateBotInput', () => {
     state.avatarPreviewUrl = 'data:image/png;base64,abc123';
     state.enabledProviders = ['openai'];
     state.enabledChannels = ['telegram'];
-    state.providerConfigs = { openai: { apiKey: 'sk', model: 'gpt-4' } };
+    state.providerConfigs = { openai: { model: 'gpt-4' } };
     state.channelConfigs = { telegram: { token: 'tk' } };
 
     const result = buildCreateBotInput(state);
@@ -276,7 +255,7 @@ describe('buildCreateBotInput', () => {
     state.features.ttsVoice = 'nova';
     state.enabledProviders = ['openai'];
     state.enabledChannels = ['telegram'];
-    state.providerConfigs = { openai: { apiKey: 'sk', model: 'gpt-4' } };
+    state.providerConfigs = { openai: { model: 'gpt-4' } };
     state.channelConfigs = { telegram: { token: 'tk' } };
 
     const result = buildCreateBotInput(state);
@@ -292,7 +271,7 @@ describe('buildCreateBotInput', () => {
     state.features.ttsVoice = 'nova';
     state.enabledProviders = ['openai'];
     state.enabledChannels = ['telegram'];
-    state.providerConfigs = { openai: { apiKey: 'sk', model: 'gpt-4' } };
+    state.providerConfigs = { openai: { model: 'gpt-4' } };
     state.channelConfigs = { telegram: { token: 'tk' } };
 
     const result = buildCreateBotInput(state);
@@ -308,7 +287,7 @@ describe('buildCreateBotInput', () => {
     state.features.sandboxTimeout = 60;
     state.enabledProviders = ['openai'];
     state.enabledChannels = ['telegram'];
-    state.providerConfigs = { openai: { apiKey: 'sk', model: 'gpt-4' } };
+    state.providerConfigs = { openai: { model: 'gpt-4' } };
     state.channelConfigs = { telegram: { token: 'tk' } };
 
     const result = buildCreateBotInput(state);
@@ -323,7 +302,7 @@ describe('buildCreateBotInput', () => {
     state.routingTags = ['prod', 'premium'];
     state.enabledProviders = ['openai'];
     state.enabledChannels = ['telegram'];
-    state.providerConfigs = { openai: { apiKey: 'sk', model: 'gpt-4' } };
+    state.providerConfigs = { openai: { model: 'gpt-4' } };
     state.channelConfigs = { telegram: { token: 'tk' } };
 
     const result = buildCreateBotInput(state);
@@ -337,7 +316,7 @@ describe('buildCreateBotInput', () => {
     state.routingTags = [];
     state.enabledProviders = ['openai'];
     state.enabledChannels = ['telegram'];
-    state.providerConfigs = { openai: { apiKey: 'sk', model: 'gpt-4' } };
+    state.providerConfigs = { openai: { model: 'gpt-4' } };
     state.channelConfigs = { telegram: { token: 'tk' } };
 
     const result = buildCreateBotInput(state);
@@ -351,8 +330,8 @@ describe('buildCreateBotInput', () => {
     state.enabledProviders = ['openai', 'anthropic'];
     state.enabledChannels = ['telegram', 'discord'];
     state.providerConfigs = {
-      openai: { apiKey: 'sk-openai', model: 'gpt-4' },
-      anthropic: { apiKey: 'sk-ant', model: 'claude-3' },
+      openai: { model: 'gpt-4' },
+      anthropic: { model: 'claude-3' },
     };
     state.channelConfigs = {
       telegram: { token: 'tg-token' },
@@ -362,8 +341,8 @@ describe('buildCreateBotInput', () => {
     const result = buildCreateBotInput(state);
 
     expect(result.providers).toHaveLength(2);
-    expect(result.providers[0]).toEqual({ providerId: 'openai', apiKey: 'sk-openai', model: 'gpt-4' });
-    expect(result.providers[1]).toEqual({ providerId: 'anthropic', apiKey: 'sk-ant', model: 'claude-3' });
+    expect(result.providers[0]).toEqual({ providerId: 'openai', model: 'gpt-4' });
+    expect(result.providers[1]).toEqual({ providerId: 'anthropic', model: 'claude-3' });
     expect(result.primaryProvider).toBe('openai');
 
     expect(result.channels).toHaveLength(2);
@@ -381,6 +360,6 @@ describe('buildCreateBotInput', () => {
     state.channelConfigs = { telegram: { token: 'tk' } };
 
     const result = buildCreateBotInput(state);
-    expect(result.providers[0]).toEqual({ providerId: 'openai', apiKey: '', model: '' });
+    expect(result.providers[0]).toEqual({ providerId: 'openai', model: '' });
   });
 });

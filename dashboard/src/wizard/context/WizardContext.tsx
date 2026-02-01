@@ -25,7 +25,7 @@ type WizardAction =
   | { type: 'TOGGLE_CHANNEL'; channelId: string }
   | { type: 'SET_ROUTING_TAGS'; tags: string[] }
   | { type: 'SET_FEATURE'; feature: keyof WizardState['features']; value: unknown }
-  | { type: 'SET_PROVIDER_CONFIG'; providerId: string; config: { apiKey?: string; model?: string } }
+  | { type: 'SET_PROVIDER_CONFIG'; providerId: string; config: { model?: string } }
   | { type: 'SET_CHANNEL_CONFIG'; channelId: string; config: { token: string } }
   | { type: 'RESET' };
 
@@ -100,7 +100,7 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
           enabledProviders: [...state.enabledProviders, providerId],
           providerConfigs: {
             ...state.providerConfigs,
-            [providerId]: { apiKey: '', model: getDefaultModel(providerId) },
+            [providerId]: { model: getDefaultModel(providerId) },
           },
         };
       }

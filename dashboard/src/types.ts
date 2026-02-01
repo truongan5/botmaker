@@ -64,7 +64,6 @@ export interface WizardFeatures {
 
 export interface ProviderConfigInput {
   providerId: string;
-  apiKey: string;
   model: string;
 }
 

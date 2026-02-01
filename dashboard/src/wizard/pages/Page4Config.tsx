@@ -16,10 +16,6 @@ const TTS_VOICES = [
 export function Page4Config() {
   const { state, dispatch } = useWizard();
 
-  const handleApiKeyChange = (providerId: string, apiKey: string) => {
-    dispatch({ type: 'SET_PROVIDER_CONFIG', providerId, config: { apiKey } });
-  };
-
   const handleModelChange = (providerId: string, model: string) => {
     dispatch({ type: 'SET_PROVIDER_CONFIG', providerId, config: { model } });
   };
@@ -44,7 +40,7 @@ export function Page4Config() {
           {state.enabledProviders.map((providerId) => {
             const provider = getProvider(providerId);
             const models = getModels(providerId);
-            const config = state.providerConfigs[providerId] || { apiKey: '', model: '' };
+            const config = state.providerConfigs[providerId] || { model: '' };
 
             return (
               <ConfigSection
@@ -53,16 +49,6 @@ export function Page4Config() {
                 title={provider?.label || providerId}
                 hint={provider?.baseUrl}
               >
-                <div className="wizard-form-group">
-                  <label className="wizard-label">API Key</label>
-                  <input
-                    type="password"
-                    className="wizard-input"
-                    value={config.apiKey}
-                    onChange={(e) => handleApiKeyChange(providerId, e.target.value)}
-                    placeholder="sk-..."
-                  />
-                </div>
                 <div className="wizard-form-group">
                   <label className="wizard-label">Model</label>
                   <select

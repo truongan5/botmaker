@@ -46,7 +46,7 @@ interface CreateBotBody {
   hostname: string;
   emoji: string;
   avatarUrl?: string;
-  providers?: { providerId: string; apiKey: string; model: string }[];
+  providers?: { providerId: string; model: string }[];
   primaryProvider?: string;
   channels?: { channelType: string; token: string }[];
   persona: {
@@ -215,15 +215,6 @@ export async function buildServer(): Promise<FastifyInstance> {
         proxyToken = registration.token;
       }
 
-      // Store secrets for all providers (only if not using proxy)
-      if (!proxyConfig) {
-        for (const provider of body.providers) {
-          const keyName = provider.providerId === primaryProvider.providerId
-            ? 'AI_API_KEY'
-            : `${provider.providerId.toUpperCase()}_API_KEY`;
-          writeSecret(bot.hostname, keyName, provider.apiKey);
-        }
-      }
 
       // Store channel tokens
       for (const channel of body.channels) {
@@ -247,7 +238,6 @@ export async function buildServer(): Promise<FastifyInstance> {
         botHostname: bot.hostname,
         botName: body.name,
         aiProvider: primaryProvider.providerId,
-        apiKey: primaryProvider.apiKey,
         model: primaryProvider.model,
         channel: {
           type: primaryChannel.channelType as 'telegram' | 'discord',
