@@ -43,4 +43,13 @@ export function runMigrations(db: Database.Database): void {
       new Date().toISOString()
     );
   }
+
+  // Migration v3: Add tags column for API routing
+  if (currentVersion < 3) {
+    db.exec('ALTER TABLE bots ADD COLUMN tags TEXT');
+    db.prepare('INSERT INTO migrations (version, applied_at) VALUES (?, ?)').run(
+      3,
+      new Date().toISOString()
+    );
+  }
 }

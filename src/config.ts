@@ -4,6 +4,7 @@
  * Loads configuration from environment variables with sensible defaults.
  */
 
+import { readFileSync } from 'node:fs';
 import { config as loadDotenv } from 'dotenv';
 
 // Load .env file
@@ -28,6 +29,10 @@ export interface AppConfig {
   openclawGitTag: string;
   /** Starting port for bot containers */
   botPortStart: number;
+  /** Keyring proxy admin API URL (optional) */
+  proxyAdminUrl: string | null;
+  /** Keyring proxy admin token (optional) */
+  proxyAdminToken: string | null;
 }
 
 function getEnvOrDefault(key: string, defaultValue: string): string {
@@ -41,11 +46,26 @@ function getEnvIntOrDefault(key: string, defaultValue: number): number {
   return isNaN(parsed) ? defaultValue : parsed;
 }
 
+function readSecretFile(path: string | undefined): string | null {
+  if (!path) return null;
+  try {
+    return readFileSync(path, 'utf-8').trim();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Get application configuration.
  * Reads from environment variables with defaults.
  */
+
 export function getConfig(): AppConfig {
+  // Proxy admin token can come from file or env var
+  const proxyAdminToken = readSecretFile(process.env.PROXY_ADMIN_TOKEN_FILE)
+    ?? process.env.PROXY_ADMIN_TOKEN
+    ?? null;
+
   return {
     port: getEnvIntOrDefault('PORT', 7100),
     host: getEnvOrDefault('HOST', '0.0.0.0'),
@@ -56,6 +76,8 @@ export function getConfig(): AppConfig {
     openclawImage: getEnvOrDefault('OPENCLAW_IMAGE', 'openclaw:latest'),
     openclawGitTag: getEnvOrDefault('OPENCLAW_GIT_TAG', 'main'),
     botPortStart: getEnvIntOrDefault('BOT_PORT_START', 19000),
+    proxyAdminUrl: process.env.PROXY_ADMIN_URL ?? null,
+    proxyAdminToken,
   };
 }
 

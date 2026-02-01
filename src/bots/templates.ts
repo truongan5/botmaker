@@ -18,6 +18,11 @@ export interface ChannelConfig {
   token: string;
 }
 
+export interface ProxyConfig {
+  baseUrl: string;
+  token: string;
+}
+
 export interface BotWorkspaceConfig {
   botId: string;
   botHostname: string;
@@ -28,6 +33,7 @@ export interface BotWorkspaceConfig {
   channel: ChannelConfig;
   persona: BotPersona;
   port: number;
+  proxy?: ProxyConfig;
 }
 
 /**
@@ -50,10 +56,24 @@ function generateAuthProfiles(provider: string, apiKey: string): object {
 /**
  * Generate openclaw.json configuration.
  * Follows OpenClaw's expected config structure for gateway mode.
+ * When proxy is configured, uses proxy baseUrl instead of direct API access.
  */
 function generateOpenclawConfig(config: BotWorkspaceConfig): object {
   // Format model as provider/model (e.g., "openai/gpt-4o")
   const modelSpec = `${config.aiProvider}/${config.model}`;
+
+  // Build models config - use proxy if configured
+  const modelsConfig = config.proxy
+    ? {
+        providers: {
+          [config.aiProvider]: {
+            baseUrl: config.proxy.baseUrl,
+            apiKey: config.proxy.token,
+            models: [config.model],
+          },
+        },
+      }
+    : undefined;
 
   return {
     gateway: {
@@ -80,6 +100,7 @@ function generateOpenclawConfig(config: BotWorkspaceConfig): object {
         workspace: '/app/botdata/workspace',
       },
     },
+    ...(modelsConfig && { models: modelsConfig }),
   };
 }
 

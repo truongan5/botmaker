@@ -46,6 +46,8 @@ export interface ContainerConfig {
   /** Host path for sandbox bind mount (Docker daemon perspective) */
   hostSandboxPath: string;
   gatewayToken: string;
+  /** Docker network to join (optional, for proxy connectivity) */
+  networkName?: string;
 }
 
 /** Container resource statistics */

@@ -67,7 +67,7 @@ export class DockerService {
           RestartPolicy: {
             Name: 'unless-stopped'
           },
-          NetworkMode: 'bridge'
+          NetworkMode: config.networkName ?? 'bridge'
         }
       });
 

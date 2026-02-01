@@ -10,6 +10,8 @@ services:
       # Persistent data
       - botmaker-data:/app/data
       - botmaker-secrets:/app/secrets
+      # Shared secrets (read-only)
+      - ./secrets:/secrets:ro
     environment:
       - PORT=7100
       - DATA_DIR=/app/data
@@ -18,6 +20,13 @@ services:
       - DATA_VOLUME_NAME=botmaker_botmaker-data
       - SECRETS_VOLUME_NAME=botmaker_botmaker-secrets
       - OPENCLAW_IMAGE=openclaw:latest
+      # Proxy configuration (optional - comment out to disable)
+      - PROXY_ADMIN_URL=http://keyring-proxy:9100
+      - PROXY_ADMIN_TOKEN_FILE=/secrets/proxy_admin_token
+    depends_on:
+      - keyring-proxy
+    networks:
+      - bm-internal
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:7100/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -26,6 +35,33 @@ services:
       retries: 3
       start_period: 10s
 
+  keyring-proxy:
+    build: ./proxy
+    container_name: keyring-proxy
+    environment:
+      - ADMIN_PORT=9100
+      - DATA_PORT=9101
+      - DB_PATH=/data/proxy.db
+      - MASTER_KEY_FILE=/secrets/master_key
+      - ADMIN_TOKEN_FILE=/secrets/admin_token
+    volumes:
+      - proxy-data:/data
+      - ./secrets:/secrets:ro
+    networks:
+      - bm-internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:9100/admin/health',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/secrets/admin_token','utf8').trim()}}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  bm-internal:
+    name: bm-internal
+
 volumes:
   botmaker-data:
   botmaker-secrets:
+  proxy-data:

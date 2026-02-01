@@ -26,6 +26,16 @@ import { writeSecret, deleteBotSecrets } from './secrets/manager.js';
 import { DockerService } from './services/DockerService.js';
 import { ReconciliationService } from './services/ReconciliationService.js';
 import { ContainerError } from './services/docker-errors.js';
+import {
+  getProxyConfig,
+  registerBotWithProxy,
+  revokeBotFromProxy,
+  listProxyKeys,
+  addProxyKey,
+  deleteProxyKey,
+  getProxyHealth,
+  type AddKeyInput,
+} from './proxy/client.js';
 
 const docker = new DockerService();
 
@@ -51,6 +61,7 @@ interface CreateBotBody {
     sandboxTimeout?: number;
     sessionScope: SessionScope;
   };
+  tags?: string[];
 }
 
 /**
@@ -190,15 +201,28 @@ export async function buildServer(): Promise<FastifyInstance> {
       channel_type: primaryChannel.channelType as 'telegram' | 'discord',
       port,
       gateway_token: gatewayToken,
+      tags: body.tags,
     });
 
+    // Check if proxy is configured
+    const proxyConfig = getProxyConfig();
+    let proxyToken: string | null = null;
+
     try {
-      // Store secrets for all providers
-      for (const provider of body.providers) {
-        const keyName = provider.providerId === primaryProvider.providerId
-          ? 'AI_API_KEY'
-          : `${provider.providerId.toUpperCase()}_API_KEY`;
-        writeSecret(bot.hostname, keyName, provider.apiKey);
+      // Register with proxy if configured
+      if (proxyConfig) {
+        const registration = await registerBotWithProxy(proxyConfig, bot.id, bot.hostname, body.tags);
+        proxyToken = registration.token;
+      }
+
+      // Store secrets for all providers (only if not using proxy)
+      if (!proxyConfig) {
+        for (const provider of body.providers) {
+          const keyName = provider.providerId === primaryProvider.providerId
+            ? 'AI_API_KEY'
+            : `${provider.providerId.toUpperCase()}_API_KEY`;
+          writeSecret(bot.hostname, keyName, provider.apiKey);
+        }
       }
 
       // Store channel tokens
@@ -208,6 +232,14 @@ export async function buildServer(): Promise<FastifyInstance> {
           : `${channel.channelType.toUpperCase()}_TOKEN`;
         writeSecret(bot.hostname, tokenName, channel.token);
       }
+
+      // Build proxy config for workspace if using proxy
+      const workspaceProxyConfig = proxyConfig && proxyToken
+        ? {
+            baseUrl: `http://keyring-proxy:9101/v1/${primaryProvider.providerId}`,
+            token: proxyToken,
+          }
+        : undefined;
 
       // Create workspace
       createBotWorkspace(config.dataDir, {
@@ -227,6 +259,7 @@ export async function buildServer(): Promise<FastifyInstance> {
           description: body.emoji || '',
         },
         port,
+        proxy: workspaceProxyConfig,
       });
 
       // Build environment
@@ -258,6 +291,7 @@ export async function buildServer(): Promise<FastifyInstance> {
         hostSecretsPath,
         hostSandboxPath,
         gatewayToken,
+        networkName: proxyConfig ? 'bm-internal' : undefined,
       });
 
       updateBot(bot.id, { container_id: containerId });
@@ -269,6 +303,9 @@ export async function buildServer(): Promise<FastifyInstance> {
       return updatedBot;
     } catch (err) {
       try { await docker.removeContainer(bot.hostname); } catch { /* ignore cleanup errors */ }
+      if (proxyConfig) {
+        try { await revokeBotFromProxy(proxyConfig, bot.id); } catch { /* ignore cleanup errors */ }
+      }
       deleteBotWorkspace(config.dataDir, bot.hostname);
       deleteBotSecrets(bot.hostname);
       deleteBot(bot.id);
@@ -297,6 +334,16 @@ export async function buildServer(): Promise<FastifyInstance> {
       if (err instanceof ContainerError && err.code !== 'NOT_FOUND') {
         reply.code(500);
         return { error: `Failed to remove container: ${err.message}` };
+      }
+    }
+
+    // Revoke from proxy if configured
+    const proxyConfig = getProxyConfig();
+    if (proxyConfig) {
+      try {
+        await revokeBotFromProxy(proxyConfig, bot.id);
+      } catch {
+        // Ignore proxy errors during deletion
       }
     }
 
@@ -379,6 +426,78 @@ export async function buildServer(): Promise<FastifyInstance> {
   server.get('/api/stats', async () => {
     const stats = await docker.getAllContainerStats();
     return { stats };
+  });
+
+  // Proxy key management endpoints
+  server.get('/api/proxy/keys', async (request, reply) => {
+    const proxyConfig = getProxyConfig();
+    if (!proxyConfig) {
+      reply.code(503);
+      return { error: 'Proxy not configured' };
+    }
+
+    try {
+      const keys = await listProxyKeys(proxyConfig);
+      return { keys };
+    } catch (err) {
+      reply.code(502);
+      return { error: err instanceof Error ? err.message : 'Failed to list proxy keys' };
+    }
+  });
+
+  server.post<{ Body: AddKeyInput }>('/api/proxy/keys', async (request, reply) => {
+    const proxyConfig = getProxyConfig();
+    if (!proxyConfig) {
+      reply.code(503);
+      return { error: 'Proxy not configured' };
+    }
+
+    const body = request.body;
+    if (!body.vendor || !body.secret) {
+      reply.code(400);
+      return { error: 'Missing vendor or secret' };
+    }
+
+    try {
+      const result = await addProxyKey(proxyConfig, body);
+      reply.code(201);
+      return result;
+    } catch (err) {
+      reply.code(502);
+      return { error: err instanceof Error ? err.message : 'Failed to add proxy key' };
+    }
+  });
+
+  server.delete<{ Params: { id: string } }>('/api/proxy/keys/:id', async (request, reply) => {
+    const proxyConfig = getProxyConfig();
+    if (!proxyConfig) {
+      reply.code(503);
+      return { error: 'Proxy not configured' };
+    }
+
+    try {
+      await deleteProxyKey(proxyConfig, request.params.id);
+      return { ok: true };
+    } catch (err) {
+      reply.code(502);
+      return { error: err instanceof Error ? err.message : 'Failed to delete proxy key' };
+    }
+  });
+
+  server.get('/api/proxy/health', async (request, reply) => {
+    const proxyConfig = getProxyConfig();
+    if (!proxyConfig) {
+      reply.code(503);
+      return { error: 'Proxy not configured', configured: false };
+    }
+
+    try {
+      const health = await getProxyHealth(proxyConfig);
+      return { ...health, configured: true };
+    } catch (err) {
+      reply.code(502);
+      return { error: err instanceof Error ? err.message : 'Failed to get proxy health', configured: true };
+    }
   });
 
   // Serve static dashboard files (if built)

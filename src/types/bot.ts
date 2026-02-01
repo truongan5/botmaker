@@ -10,6 +10,7 @@ export interface Bot {
   container_id: string | null;
   port: number | null;  // Allocated port for container
   gateway_token: string | null; // OpenClaw gateway authentication token
+  tags: string | null;  // JSON array of API routing tags
   status: BotStatus;
   created_at: string;   // ISO datetime
   updated_at: string;   // ISO datetime

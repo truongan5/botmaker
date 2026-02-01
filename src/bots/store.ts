@@ -16,6 +16,7 @@ export interface CreateBotInput {
   channel_type: string;
   port: number;
   gateway_token: string;
+  tags?: string[];
 }
 
 export interface UpdateBotInput {
@@ -27,6 +28,7 @@ export interface UpdateBotInput {
   container_id?: string | null;
   port?: number | null;
   gateway_token?: string | null;
+  tags?: string[] | null;
   status?: BotStatus;
 }
 
@@ -40,13 +42,14 @@ export function createBot(input: CreateBotInput): Bot {
   const db = getDb();
   const now = new Date().toISOString();
   const id = uuidv4();
+  const tagsJson = input.tags && input.tags.length > 0 ? JSON.stringify(input.tags) : null;
 
   const stmt = db.prepare(`
-    INSERT INTO bots (id, name, hostname, ai_provider, model, channel_type, port, gateway_token, status, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO bots (id, name, hostname, ai_provider, model, channel_type, port, gateway_token, tags, status, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  stmt.run(id, input.name, input.hostname, input.ai_provider, input.model, input.channel_type, input.port, input.gateway_token, 'created', now, now);
+  stmt.run(id, input.name, input.hostname, input.ai_provider, input.model, input.channel_type, input.port, input.gateway_token, tagsJson, 'created', now, now);
 
   return {
     id,
@@ -58,6 +61,7 @@ export function createBot(input: CreateBotInput): Bot {
     container_id: null,
     port: input.port,
     gateway_token: input.gateway_token,
+    tags: tagsJson,
     status: 'created',
     created_at: now,
     updated_at: now,
@@ -160,6 +164,10 @@ export function updateBot(id: string, input: UpdateBotInput): Bot | null {
   if (input.gateway_token !== undefined) {
     updates.push('gateway_token = ?');
     values.push(input.gateway_token);
+  }
+  if (input.tags !== undefined) {
+    updates.push('tags = ?');
+    values.push(input.tags && input.tags.length > 0 ? JSON.stringify(input.tags) : null);
   }
   if (input.status !== undefined) {
     updates.push('status = ?');
