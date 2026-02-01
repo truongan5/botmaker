@@ -1,8 +1,21 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { v4 as uuidv4 } from 'uuid';
+import { timingSafeEqual } from 'node:crypto';
 import type { ProxyDatabase } from '../db/index.js';
 import { encrypt, generateToken, hashToken } from '../crypto/encryption.js';
 import { VENDOR_CONFIGS } from '../types.js';
+
+function safeCompare(a: string, b: string): boolean {
+  const aBuf = Buffer.from(a);
+  const bBuf = Buffer.from(b);
+  const maxLen = Math.max(aBuf.length, bBuf.length);
+  const aPadded = Buffer.alloc(maxLen);
+  const bPadded = Buffer.alloc(maxLen);
+  aBuf.copy(aPadded);
+  bBuf.copy(bPadded);
+  const equal = timingSafeEqual(aPadded, bPadded);
+  return equal && aBuf.length === bBuf.length;
+}
 
 interface AddKeyBody {
   vendor: string;
@@ -23,7 +36,6 @@ export function registerAdminRoutes(
   masterKey: Buffer,
   adminToken: string
 ): void {
-  // Auth hook
   app.addHook('preHandler', async (req: FastifyRequest, reply: FastifyReply) => {
     const auth = req.headers.authorization;
     if (!auth || !auth.startsWith('Bearer ')) {
@@ -32,13 +44,12 @@ export function registerAdminRoutes(
     }
 
     const token = auth.slice(7);
-    if (token !== adminToken) {
+    if (!safeCompare(token, adminToken)) {
       reply.status(403).send({ error: 'Invalid admin token' });
       return;
     }
   });
 
-  // Health check
   app.get('/admin/health', async () => {
     return {
       status: 'ok',
@@ -47,7 +58,6 @@ export function registerAdminRoutes(
     };
   });
 
-  // Keys management
   app.post('/admin/keys', async (req: FastifyRequest, reply: FastifyReply) => {
     const body = req.body as AddKeyBody;
 
@@ -85,7 +95,6 @@ export function registerAdminRoutes(
     return { ok: true };
   });
 
-  // Bots management
   app.post('/admin/bots', async (req: FastifyRequest, reply: FastifyReply) => {
     const body = req.body as AddBotBody;
 
@@ -94,7 +103,6 @@ export function registerAdminRoutes(
       return;
     }
 
-    // Check if bot already exists
     const existing = db.getBot(body.botId);
     if (existing) {
       reply.status(409).send({ error: 'Bot already registered' });

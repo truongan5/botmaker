@@ -40,7 +40,15 @@ export function registerProxyRoutes(
     }
 
     // Parse bot tags from JSON
-    const botTags: string[] | null = bot.tags ? JSON.parse(bot.tags) : null;
+    let botTags: string[] | null = null;
+    if (bot.tags) {
+      try {
+        botTags = JSON.parse(bot.tags);
+      } catch {
+        reply.status(500).send({ error: 'Invalid bot tags configuration' });
+        return;
+      }
+    }
 
     // Select API key for vendor with tag-based routing
     const keySelection = keyring.selectKeyForBot(vendor, botTags);
@@ -49,7 +57,6 @@ export function registerProxyRoutes(
       return;
     }
 
-    // Build headers from request
     const headers: Record<string, string> = {};
     for (const [key, value] of Object.entries(req.headers)) {
       if (typeof value === 'string') {
@@ -59,16 +66,11 @@ export function registerProxyRoutes(
       }
     }
 
-    // Get request body
     let body: Buffer | null = null;
     if (req.body) {
-      if (Buffer.isBuffer(req.body)) {
-        body = req.body;
-      } else if (typeof req.body === 'string') {
-        body = Buffer.from(req.body, 'utf8');
-      } else {
-        body = Buffer.from(JSON.stringify(req.body), 'utf8');
-      }
+      body = Buffer.isBuffer(req.body)
+        ? req.body
+        : Buffer.from(typeof req.body === 'string' ? req.body : JSON.stringify(req.body), 'utf8');
     }
 
     // Forward to upstream

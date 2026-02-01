@@ -1,10 +1,12 @@
-/**
- * Proxy Client
- *
- * Client for communicating with the keyring proxy admin API.
- */
-
 import { getConfig } from '../config.js';
+
+const REQUEST_TIMEOUT_MS = 30000;
+
+function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => { controller.abort(); }, REQUEST_TIMEOUT_MS);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => { clearTimeout(timeoutId); });
+}
 
 export interface ProxyConfig {
   adminUrl: string;
@@ -36,10 +38,10 @@ export interface AddKeyInput {
   tag?: string;
 }
 
-/**
- * Get proxy configuration from environment.
- * Returns null if proxy is not configured.
- */
+function authHeaders(token: string): { Authorization: string } {
+  return { Authorization: `Bearer ${token}` };
+}
+
 export function getProxyConfig(): ProxyConfig | null {
   const config = getConfig();
 
@@ -53,15 +55,10 @@ export function getProxyConfig(): ProxyConfig | null {
   };
 }
 
-/**
- * Check if proxy is available and healthy.
- */
 export async function isProxyHealthy(proxyConfig: ProxyConfig): Promise<boolean> {
   try {
-    const response = await fetch(`${proxyConfig.adminUrl}/admin/health`, {
-      headers: {
-        Authorization: `Bearer ${proxyConfig.adminToken}`,
-      },
+    const response = await fetchWithTimeout(`${proxyConfig.adminUrl}/admin/health`, {
+      headers: authHeaders(proxyConfig.adminToken),
     });
     return response.ok;
   } catch {
@@ -69,22 +66,15 @@ export async function isProxyHealthy(proxyConfig: ProxyConfig): Promise<boolean>
   }
 }
 
-/**
- * Register a bot with the proxy.
- * Returns the bot token to use for proxy authentication.
- */
 export async function registerBotWithProxy(
   proxyConfig: ProxyConfig,
   botId: string,
   hostname: string,
   tags?: string[]
 ): Promise<BotRegistration> {
-  const response = await fetch(`${proxyConfig.adminUrl}/admin/bots`, {
+  const response = await fetchWithTimeout(`${proxyConfig.adminUrl}/admin/bots`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${proxyConfig.adminToken}`,
-    },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(proxyConfig.adminToken) },
     body: JSON.stringify({ botId, hostname, tags }),
   });
 
@@ -96,18 +86,13 @@ export async function registerBotWithProxy(
   return response.json() as Promise<BotRegistration>;
 }
 
-/**
- * Revoke a bot's access to the proxy.
- */
 export async function revokeBotFromProxy(
   proxyConfig: ProxyConfig,
   botId: string
 ): Promise<void> {
-  const response = await fetch(`${proxyConfig.adminUrl}/admin/bots/${botId}`, {
+  const response = await fetchWithTimeout(`${proxyConfig.adminUrl}/admin/bots/${botId}`, {
     method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${proxyConfig.adminToken}`,
-    },
+    headers: authHeaders(proxyConfig.adminToken),
   });
 
   if (!response.ok && response.status !== 404) {
@@ -116,16 +101,11 @@ export async function revokeBotFromProxy(
   }
 }
 
-/**
- * Get list of vendors that have keys configured in the proxy.
- */
 export async function getAvailableVendors(
   proxyConfig: ProxyConfig
 ): Promise<string[]> {
-  const response = await fetch(`${proxyConfig.adminUrl}/admin/keys`, {
-    headers: {
-      Authorization: `Bearer ${proxyConfig.adminToken}`,
-    },
+  const response = await fetchWithTimeout(`${proxyConfig.adminUrl}/admin/keys`, {
+    headers: authHeaders(proxyConfig.adminToken),
   });
 
   if (!response.ok) {
@@ -133,20 +113,14 @@ export async function getAvailableVendors(
   }
 
   const keys = await response.json() as ProxyKey[];
-  const vendors = new Set(keys.map(k => k.vendor));
-  return Array.from(vendors);
+  return [...new Set(keys.map(k => k.vendor))];
 }
 
-/**
- * List all API keys from the proxy (without secrets).
- */
 export async function listProxyKeys(
   proxyConfig: ProxyConfig
 ): Promise<ProxyKey[]> {
-  const response = await fetch(`${proxyConfig.adminUrl}/admin/keys`, {
-    headers: {
-      Authorization: `Bearer ${proxyConfig.adminToken}`,
-    },
+  const response = await fetchWithTimeout(`${proxyConfig.adminUrl}/admin/keys`, {
+    headers: authHeaders(proxyConfig.adminToken),
   });
 
   if (!response.ok) {
@@ -156,19 +130,13 @@ export async function listProxyKeys(
   return response.json() as Promise<ProxyKey[]>;
 }
 
-/**
- * Add a new API key to the proxy.
- */
 export async function addProxyKey(
   proxyConfig: ProxyConfig,
   input: AddKeyInput
 ): Promise<{ id: string }> {
-  const response = await fetch(`${proxyConfig.adminUrl}/admin/keys`, {
+  const response = await fetchWithTimeout(`${proxyConfig.adminUrl}/admin/keys`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${proxyConfig.adminToken}`,
-    },
+    headers: { 'Content-Type': 'application/json', ...authHeaders(proxyConfig.adminToken) },
     body: JSON.stringify(input),
   });
 
@@ -180,18 +148,13 @@ export async function addProxyKey(
   return response.json() as Promise<{ id: string }>;
 }
 
-/**
- * Delete an API key from the proxy.
- */
 export async function deleteProxyKey(
   proxyConfig: ProxyConfig,
   keyId: string
 ): Promise<void> {
-  const response = await fetch(`${proxyConfig.adminUrl}/admin/keys/${keyId}`, {
+  const response = await fetchWithTimeout(`${proxyConfig.adminUrl}/admin/keys/${keyId}`, {
     method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${proxyConfig.adminToken}`,
-    },
+    headers: authHeaders(proxyConfig.adminToken),
   });
 
   if (!response.ok && response.status !== 404) {
@@ -200,16 +163,11 @@ export async function deleteProxyKey(
   }
 }
 
-/**
- * Get proxy health status.
- */
 export async function getProxyHealth(
   proxyConfig: ProxyConfig
 ): Promise<ProxyHealthResponse> {
-  const response = await fetch(`${proxyConfig.adminUrl}/admin/health`, {
-    headers: {
-      Authorization: `Bearer ${proxyConfig.adminToken}`,
-    },
+  const response = await fetchWithTimeout(`${proxyConfig.adminUrl}/admin/health`, {
+    headers: authHeaders(proxyConfig.adminToken),
   });
 
   if (!response.ok) {

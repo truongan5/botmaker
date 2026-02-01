@@ -3,6 +3,8 @@ import type { IncomingMessage } from 'http';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import type { VendorConfig } from '../types.js';
 
+const REQUEST_TIMEOUT_MS = 120000;
+
 export interface UpstreamRequest {
   vendorConfig: VendorConfig;
   path: string;
@@ -48,6 +50,7 @@ export async function forwardToUpstream(
       path: upstreamPath,
       method,
       headers: upstreamHeaders,
+      timeout: REQUEST_TIMEOUT_MS,
     };
 
     const proxyReq = https.request(options, (proxyRes: IncomingMessage) => {
@@ -94,6 +97,11 @@ export async function forwardToUpstream(
 
     proxyReq.on('error', (err) => {
       reject(err);
+    });
+
+    proxyReq.on('timeout', () => {
+      proxyReq.destroy();
+      reject(new Error('Upstream request timed out'));
     });
 
     if (body) {
