@@ -40,7 +40,7 @@ export const VENDOR_CONFIGS: Record<string, VendorConfig> = {
   },
   anthropic: {
     host: 'api.anthropic.com',
-    basePath: '/v1',
+    basePath: '', // OpenClaw's anthropic-messages API includes /v1 in its path
     authHeader: 'x-api-key',
     authFormat: (key) => key,
   },
