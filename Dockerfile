@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y python3 make g++ curl && rm -rf /var/li
 
 # Install only production dependencies
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Copy built files
 COPY --from=builder /app/dist ./dist

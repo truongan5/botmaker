@@ -7,46 +7,51 @@ interface TokenDisplayProps {
 }
 
 /**
- * Copy text to clipboard with fallback for non-HTTPS contexts.
- * The Clipboard API requires secure context (HTTPS or localhost).
+ * Copy text to clipboard using the modern Clipboard API with fallback.
+ * Requires secure context (HTTPS or localhost) for Clipboard API.
  */
-function copyToClipboard(text: string): boolean {
-  // Try modern Clipboard API first (works on HTTPS/localhost)
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(text);
+async function copyToClipboard(text: string): Promise<boolean> {
+  // Try modern Clipboard API first
+  try {
+    await navigator.clipboard.writeText(text);
     return true;
+  } catch (err) {
+    console.warn('Clipboard API failed, trying fallback:', err);
   }
 
-  // Fallback: create temporary textarea and use execCommand
-  const textarea = document.createElement('textarea');
-  textarea.value = text;
-  textarea.style.position = 'fixed';
-  textarea.style.left = '-9999px';
-  textarea.style.top = '-9999px';
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-
+  // Fallback: hidden textarea + execCommand
   try {
-    document.execCommand('copy');
-    return true;
-  } catch {
-    return false;
-  } finally {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const success = document.execCommand('copy');
     document.body.removeChild(textarea);
+    return success;
+  } catch (err) {
+    console.warn('Fallback copy failed:', err);
+    return false;
   }
 }
 
 export function TokenDisplay({ token, label = 'Access Token' }: TokenDisplayProps) {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [revealed, setRevealed] = useState(false);
 
   const handleCopy = useCallback(() => {
-    const success = copyToClipboard(token);
-    if (success) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    setCopyFailed(false);
+    void copyToClipboard(token).then((success) => {
+      if (success) {
+        setCopied(true);
+        setTimeout(() => { setCopied(false); }, 2000);
+      } else {
+        setCopyFailed(true);
+        setTimeout(() => { setCopyFailed(false); }, 2000);
+      }
+    });
   }, [token]);
 
   const maskedToken = token.slice(0, 8) + '••••••••' + token.slice(-8);
@@ -57,7 +62,7 @@ export function TokenDisplay({ token, label = 'Access Token' }: TokenDisplayProp
       <div className="token-display-row">
         <button
           className="token-display-reveal"
-          onClick={() => setRevealed(!revealed)}
+          onClick={() => { setRevealed(!revealed); }}
           title={revealed ? 'Hide token' : 'Reveal token'}
         >
           <span className="token-display-icon">
@@ -68,12 +73,12 @@ export function TokenDisplay({ token, label = 'Access Token' }: TokenDisplayProp
           {revealed ? token : maskedToken}
         </code>
         <button
-          className={`token-display-copy ${copied ? 'copied' : ''}`}
+          className={`token-display-copy ${copied ? 'copied' : ''} ${copyFailed ? 'failed' : ''}`}
           onClick={handleCopy}
           title="Copy to clipboard"
         >
           <span className="token-display-copy-icon">
-            {copied ? '✓' : '⧉'}
+            {copied ? '✓' : copyFailed ? '✗' : '⧉'}
           </span>
         </button>
       </div>

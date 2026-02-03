@@ -1,14 +1,16 @@
 # BotMaker
 
-Web UI for managing OpenClaw AI chatbots in Docker containers.
+Web UI for managing [OpenClaw](https://github.com/jgarzik/openclaw) AI chatbots in Docker containers.
+
+**OpenClaw** is a multi-channel AI chatbot framework. BotMaker provides the management layer: a dashboard to create, configure, and monitor OpenClaw bots without editing config files.
 
 ## Key Features
 
 ### Zero-Trust API Key Architecture
 
-BotMaker isolates API keys from bot containers entirely. Bots never see your real API credentials.
+Traditional setups pass API keys directly to bots—if a bot is compromised, your keys leak. BotMaker uses a **zero-trust** model: bots never have access to real credentials, even if fully compromised.
 
-**Why this matters:** API key leaks are rampant in AI applications. Prompt injection attacks, compromised dependencies, and overly-verbose logging all create opportunities for keys to leak. With BotMaker:
+**Why this matters:** API key leaks are common in AI applications—prompt injection attacks, compromised dependencies, and verbose logging all create leak vectors. With BotMaker:
 
 - Bot containers receive only a proxy URL, never real API keys
 - A separate **keyring-proxy** container holds encrypted credentials
@@ -56,26 +58,45 @@ BotMaker isolates API keys from bot containers entirely. Bots never see your rea
 
 ## Requirements
 
-- Node.js 20+
-- Docker
-- OpenClaw Docker image (`openclaw:latest` or custom base image)
+- Docker and Docker Compose
+- Node.js 20+ (for development only)
+- OpenClaw base image — build from [OpenClaw repo](https://github.com/jgarzik/openclaw) or use a prebuilt image:
+  ```bash
+  # Option A: Build from source
+  git clone https://github.com/jgarzik/openclaw && cd openclaw && docker build -t openclaw:latest .
+
+  # Option B: Use a prebuilt image (set OPENCLAW_BASE_IMAGE in docker-compose.yml)
+  ```
 
 ## Quick Start
 
 ### Docker Compose (Recommended)
 
 ```bash
-# Build the bot environment image (includes build tools, python, etc.)
-docker compose build botenv
+# 1. Initialize secrets (first time only)
+mkdir -p secrets
+openssl rand -hex 32 > secrets/master_key
+openssl rand -hex 32 > secrets/admin_token
+cp secrets/admin_token secrets/proxy_admin_token
+openssl rand -base64 16 > secrets/admin_password
 
-# Run services
+# 2. Build images (first time, or after code changes)
+docker compose build botenv
+docker compose build
+
+# 3. Run services
 docker compose up -d
 
-# View logs
-docker compose logs -f
+# 4. Open dashboard (password is in secrets/admin_password)
+open http://localhost:7100   # or visit in browser
+cat secrets/admin_password   # to see your generated password
+```
 
-# Stop
-docker compose down
+Other useful commands:
+```bash
+docker compose logs -f      # View logs
+docker compose down         # Stop services
+docker compose ps           # Check status
 ```
 
 ### Development
@@ -87,26 +108,75 @@ cd dashboard && npm install && cd ..
 cd proxy && npm install && cd ..
 
 # Start backend (with hot reload)
-npm run dev
+ADMIN_PASSWORD=devpassword12 npm run dev
 
 # Start dashboard (in another terminal)
 cd dashboard && npm run dev
 ```
 
-### Production
+### Production (without Docker)
 
 ```bash
 # Build everything
 npm run build:all
 
 # Start
-npm start
+ADMIN_PASSWORD=your-secure-password npm start
+```
+
+## Authentication
+
+The dashboard requires password authentication. The password is read from `secrets/admin_password`.
+
+**Setup (done in Quick Start):**
+```bash
+openssl rand -base64 16 > secrets/admin_password
+```
+
+**Requirements:**
+- Password must be at least 12 characters
+- File must exist and be readable
+
+**Alternative (development only):**
+```bash
+ADMIN_PASSWORD=your-password npm run dev
+```
+
+On first visit, you'll see a login form. Enter the password to access the dashboard. Sessions are stored in-memory and expire after 24 hours.
+
+### After Login
+
+1. **Add API Keys** — Go to the Secrets tab and add your AI provider API keys (OpenAI, Anthropic, etc.). These are stored encrypted in the keyring-proxy.
+
+2. **Create a Bot** — Click "New Bot" and follow the wizard. You'll need:
+   - A name and hostname for your bot
+   - Select an AI provider (must have a key added first)
+   - A channel token (Telegram bot token or Discord bot token)
+   - A persona (name and personality description)
+
+3. **Monitor** — The Dashboard tab shows all bots with their status. Start/stop bots, view logs, and check resource usage.
+
+### Login API
+
+```bash
+# Login
+TOKEN=$(curl -s -X POST http://localhost:7100/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"password":"your-password"}' | jq -r .token)
+
+# Use token for API calls
+curl -H "Authorization: Bearer $TOKEN" http://localhost:7100/api/bots
+
+# Logout
+curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:7100/api/logout
 ```
 
 ## Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `ADMIN_PASSWORD_FILE` | /secrets/admin_password | Dashboard password file (recommended) |
+| `ADMIN_PASSWORD` | - | Dashboard password (env var, dev only) |
 | `PORT` | 7100 | Server port |
 | `HOST` | 0.0.0.0 | Bind address |
 | `DATA_DIR` | ./data | Database and bot workspaces |
@@ -114,8 +184,18 @@ npm start
 | `BOTENV_IMAGE` | botmaker-env:latest | Bot container image (built from botenv) |
 | `OPENCLAW_BASE_IMAGE` | openclaw:latest | Base image for botenv |
 | `BOT_PORT_START` | 19000 | Starting port for bot containers |
+| `SESSION_EXPIRY_MS` | 86400000 | Session expiry in milliseconds (default 24h) |
 
 ## API Reference
+
+All `/api/*` endpoints require authentication via Bearer token (see Authentication section).
+
+### Authentication
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/login` | Login with password, returns session token |
+| POST | `/api/logout` | Invalidate current session |
 
 ### Bot Management
 
@@ -132,7 +212,7 @@ npm start
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health` | Health check |
+| GET | `/health` | Health check (no auth required) |
 | GET | `/api/stats` | Container resource stats (CPU, memory) |
 | GET | `/api/admin/orphans` | Preview orphaned resources |
 | POST | `/api/admin/cleanup` | Clean orphaned containers/workspaces/secrets |
@@ -160,7 +240,13 @@ botmaker/
 ### Running Tests
 
 ```bash
-# Run E2E tests (requires running server)
+# Backend unit tests
+npm test
+
+# Dashboard unit tests
+cd dashboard && npm test
+
+# E2E tests (requires running server)
 ./scripts/test-e2e.sh
 ```
 

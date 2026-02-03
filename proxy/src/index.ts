@@ -1,4 +1,6 @@
 import Fastify from 'fastify';
+import fastifyRateLimit from '@fastify/rate-limit';
+import fastifyHelmet from '@fastify/helmet';
 import { loadConfig } from './config.js';
 import { ProxyDatabase } from './db/index.js';
 import { KeyringService } from './services/keyring.js';
@@ -16,6 +18,11 @@ async function main(): Promise<void> {
 
   // Create admin server
   const adminApp = Fastify({ logger: true });
+  await adminApp.register(fastifyHelmet);
+  await adminApp.register(fastifyRateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+  });
   adminApp.addContentTypeParser(
     'application/json',
     { parseAs: 'string' },
@@ -31,6 +38,11 @@ async function main(): Promise<void> {
 
   // Create data plane server
   const dataApp = Fastify({ logger: true });
+  await dataApp.register(fastifyHelmet);
+  await dataApp.register(fastifyRateLimit, {
+    max: 1000,
+    timeWindow: '1 minute',
+  });
 
   // Parse JSON and raw bodies for proxy
   dataApp.addContentTypeParser(
@@ -59,8 +71,8 @@ async function main(): Promise<void> {
     process.exit(0);
   };
 
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', () => void shutdown());
+  process.on('SIGINT', () => void shutdown());
 
   // Start servers
   try {
@@ -75,4 +87,4 @@ async function main(): Promise<void> {
   }
 }
 
-main();
+void main();

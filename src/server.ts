@@ -1,14 +1,10 @@
-/**
- * Fastify Server
- *
- * API routes for bot management.
- */
-
-import Fastify, { FastifyInstance } from 'fastify';
+import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import fastifyStatic from '@fastify/static';
+import fastifyRateLimit from '@fastify/rate-limit';
+import fastifyHelmet from '@fastify/helmet';
 import { join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 
 import { getConfig } from './config.js';
 import { initDb } from './db/index.js';
@@ -40,6 +36,54 @@ import {
 
 const docker = new DockerService();
 
+function safeCompare(a: string, b: string): boolean {
+  const aBuf = Buffer.from(a);
+  const bBuf = Buffer.from(b);
+  const maxLen = Math.max(aBuf.length, bBuf.length);
+  const aPadded = Buffer.alloc(maxLen);
+  const bPadded = Buffer.alloc(maxLen);
+  aBuf.copy(aPadded);
+  bBuf.copy(bPadded);
+  const equal = timingSafeEqual(aPadded, bPadded);
+  return equal && aBuf.length === bBuf.length;
+}
+
+// Session management
+interface Session {
+  token: string;
+  expiresAt: number;
+}
+
+// Session storage: intentionally in-memory for simplicity.
+// Sessions are lost on server restart; users must re-login.
+// Expired sessions are cleaned up lazily in validateSession().
+// Acceptable for single-user admin dashboard with infrequent restarts.
+const sessions = new Map<string, Session>();
+
+function createSession(expiryMs: number): string {
+  const token = randomBytes(32).toString('hex');
+  const expiresAt = Date.now() + expiryMs;
+  sessions.set(token, { token, expiresAt });
+  return token;
+}
+
+function validateSession(token: string): boolean {
+  const session = sessions.get(token);
+  if (!session) return false;
+  if (Date.now() > session.expiresAt) {
+    sessions.delete(token);
+    return false;
+  }
+  return true;
+}
+
+function invalidateSession(token: string): void {
+  sessions.delete(token);
+}
+
+// Export for testing
+export { sessions, createSession, validateSession, invalidateSession };
+
 type SessionScope = 'user' | 'channel' | 'global';
 
 interface CreateBotBody {
@@ -65,11 +109,6 @@ interface CreateBotBody {
   tags?: string[];
 }
 
-/**
- * Resolve host paths for Docker bind mounts.
- * If volume names are configured, inspect them to get actual host paths.
- * Otherwise, fall back to using the configured directories directly.
- */
 async function resolveHostPaths(config: ReturnType<typeof getConfig>): Promise<{
   hostDataDir: string;
   hostSecretsDir: string;
@@ -87,9 +126,6 @@ async function resolveHostPaths(config: ReturnType<typeof getConfig>): Promise<{
   return { hostDataDir, hostSecretsDir };
 }
 
-/**
- * Build and configure the Fastify server.
- */
 export async function buildServer(): Promise<FastifyInstance> {
   const config = getConfig();
 
@@ -103,14 +139,80 @@ export async function buildServer(): Promise<FastifyInstance> {
     logger: true,
   });
 
+  // Register security headers
+  await server.register(fastifyHelmet, {
+    contentSecurityPolicy: false,
+  });
+
+  // Register rate limiting
+  await server.register(fastifyRateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+  });
+
+  // Authentication middleware for API routes
+  server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (request.url === '/health') {
+      return;
+    }
+    // Allow login endpoint without auth
+    if (request.url === '/api/login' && request.method === 'POST') {
+      return;
+    }
+    if (!request.url.startsWith('/api/')) {
+      return;
+    }
+
+    const auth = request.headers.authorization;
+    if (!auth?.startsWith('Bearer ')) {
+      reply.code(401).send({ error: 'Missing authorization' });
+      return;
+    }
+
+    const token = auth.slice(7);
+    // Validate session token
+    if (!validateSession(token)) {
+      reply.code(401).send({ error: 'Invalid or expired session' });
+      return;
+    }
+  });
+
   // Run startup reconciliation
   const reconciliation = new ReconciliationService(docker, config.dataDir, server.log);
   const report = await reconciliation.reconcileOnStartup();
   server.log.info({ report }, 'Startup reconciliation complete');
 
-  // Health check
-  server.get('/health', () => {
+  // Health check (rate limiting disabled for monitoring/load balancers)
+  server.get('/health', { config: { rateLimit: false } }, () => {
     return { status: 'ok', timestamp: new Date().toISOString() };
+  });
+
+  // Login endpoint
+  server.post<{ Body: { password?: string } }>('/api/login', async (request, reply) => {
+    const { password } = request.body;
+
+    if (!password) {
+      reply.code(400);
+      return { error: 'Password is required' };
+    }
+
+    if (!safeCompare(password, config.adminPassword)) {
+      reply.code(401);
+      return { error: 'Invalid password' };
+    }
+
+    const token = createSession(config.sessionExpiryMs);
+    return { token };
+  });
+
+  // Logout endpoint
+  server.post('/api/logout', async (request, _reply) => {
+    const auth = request.headers.authorization;
+    if (auth?.startsWith('Bearer ')) {
+      const token = auth.slice(7);
+      invalidateSession(token);
+    }
+    return { success: true };
   });
 
   // List all bots
@@ -216,12 +318,15 @@ export async function buildServer(): Promise<FastifyInstance> {
         proxyToken = registration.token;
       }
 
-
-      // Store channel tokens
       for (const channel of body.channels) {
-        const tokenName = channel.channelType === 'telegram' ? 'TELEGRAM_TOKEN'
-          : channel.channelType === 'discord' ? 'DISCORD_TOKEN'
-          : `${channel.channelType.toUpperCase()}_TOKEN`;
+        let tokenName: string;
+        if (channel.channelType === 'telegram') {
+          tokenName = 'TELEGRAM_TOKEN';
+        } else if (channel.channelType === 'discord') {
+          tokenName = 'DISCORD_TOKEN';
+        } else {
+          tokenName = `${channel.channelType.toUpperCase()}_TOKEN`;
+        }
         writeSecret(bot.hostname, tokenName, channel.token);
       }
 
@@ -428,7 +533,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   // Proxy key management endpoints
-  server.get('/api/proxy/keys', async (request, reply) => {
+  server.get('/api/proxy/keys', async (_request, reply) => {
     const proxyConfig = getProxyConfig();
     if (!proxyConfig) {
       reply.code(503);
@@ -483,7 +588,7 @@ export async function buildServer(): Promise<FastifyInstance> {
     }
   });
 
-  server.get('/api/proxy/health', async (request, reply) => {
+  server.get('/api/proxy/health', async (_request, reply) => {
     const proxyConfig = getProxyConfig();
     if (!proxyConfig) {
       reply.code(503);
