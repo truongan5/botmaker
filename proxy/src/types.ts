@@ -56,4 +56,10 @@ export const VENDOR_CONFIGS: Record<string, VendorConfig> = {
     authHeader: 'x-goog-api-key',
     authFormat: (key) => key,
   },
+  openrouter: {
+    host: 'openrouter.ai',
+    basePath: '/api/v1',
+    authHeader: 'Authorization',
+    authFormat: (key) => `Bearer ${key}`,
+  },
 };

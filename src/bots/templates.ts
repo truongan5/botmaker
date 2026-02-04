@@ -62,7 +62,8 @@ function getApiTypeForProvider(provider: string): string {
     case 'google':
       return 'google-gemini';
     case 'venice':
-      return 'openai-completions'; // Venice uses OpenAI-compatible API
+    case 'openrouter':
+      return 'openai-completions'; // OpenAI-compatible APIs
     case 'openai':
     default:
       return 'openai-responses';
