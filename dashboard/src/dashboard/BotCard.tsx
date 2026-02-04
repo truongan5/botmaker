@@ -21,12 +21,13 @@ function getEffectiveStatus(bot: Bot): BotStatus {
   if (containerState === 'running') {
     // Use Docker health check status to determine if bot is ready
     const health = bot.container_status?.health;
-    if (health === 'starting' || health === 'none') {
+    if (health === 'starting') {
       return 'starting';
     }
     if (health === 'unhealthy') {
       return 'error';
     }
+    // 'healthy' or 'none' (no healthcheck configured) = running
     return 'running';
   }
   if (containerState === 'exited' || containerState === 'dead') {
