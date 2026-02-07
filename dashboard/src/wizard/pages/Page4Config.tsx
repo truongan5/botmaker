@@ -17,18 +17,18 @@ const TTS_VOICES = [
 ];
 
 /** Hook to fetch dynamic models for providers that support it. */
-function useDynamicModels(_providerId: string, baseUrl: string) {
+function useDynamicModels(baseUrl: string, apiKey: string) {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(() => {
     if (!baseUrl) return;
     setLoading(true);
-    fetchOllamaModels(baseUrl)
+    fetchOllamaModels(baseUrl, apiKey || undefined)
       .then((ids) => { setModels(ids.map((id) => ({ id }))); })
       .catch(() => { setModels([]); })
       .finally(() => { setLoading(false); });
-  }, [baseUrl]);
+  }, [baseUrl, apiKey]);
 
   useEffect(() => { refresh(); }, [refresh]);
 
@@ -40,6 +40,8 @@ export function Page4Config() {
 
   // Track per-provider base URL overrides (for baseUrlEditable providers)
   const [baseUrls, setBaseUrls] = useState<Record<string, string>>({});
+  // Track per-provider API key for dynamic model fetching
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
 
   const handleModelChange = (providerId: string, model: string) => {
     dispatch({ type: 'SET_PROVIDER_CONFIG', providerId, config: { model } });
@@ -78,6 +80,10 @@ export function Page4Config() {
                   baseUrl={getBaseUrl(providerId)}
                   onBaseUrlChange={(url) => {
                     setBaseUrls((prev) => ({ ...prev, [providerId]: url }));
+                  }}
+                  apiKey={apiKeys[providerId] ?? ''}
+                  onApiKeyChange={(key) => {
+                    setApiKeys((prev) => ({ ...prev, [providerId]: key }));
                   }}
                   model={state.providerConfigs[providerId]?.model ?? ''}
                   onModelChange={(model) => { handleModelChange(providerId, model); }}
@@ -201,17 +207,21 @@ function DynamicProviderConfig({
   providerId,
   baseUrl,
   onBaseUrlChange,
+  apiKey,
+  onApiKeyChange,
   model,
   onModelChange,
 }: {
   providerId: string;
   baseUrl: string;
   onBaseUrlChange: (url: string) => void;
+  apiKey: string;
+  onApiKeyChange: (key: string) => void;
   model: string;
   onModelChange: (model: string) => void;
 }) {
   const provider = getProvider(providerId);
-  const { models, loading, refresh } = useDynamicModels(providerId, baseUrl);
+  const { models, loading, refresh } = useDynamicModels(baseUrl, apiKey);
 
   return (
     <ConfigSection
@@ -231,6 +241,17 @@ function DynamicProviderConfig({
           />
         </div>
       )}
+
+      <div className="wizard-form-group">
+        <label className="wizard-label">API Key (for model discovery)</label>
+        <input
+          type="password"
+          className="wizard-input"
+          value={apiKey}
+          onChange={(e) => { onApiKeyChange(e.target.value); }}
+          placeholder={provider?.keyHint ?? 'API key'}
+        />
+      </div>
 
       <div className="wizard-form-group">
         <label className="wizard-label">

@@ -179,11 +179,12 @@ export async function fetchProxyHealth(): Promise<ProxyHealthResponse> {
   return handleResponse<ProxyHealthResponse>(response);
 }
 
-export async function fetchOllamaModels(baseUrl: string): Promise<string[]> {
-  const response = await fetch(
-    `${API_BASE}/ollama/models?baseUrl=${encodeURIComponent(baseUrl)}`,
-    { headers: getAuthHeaders() },
-  );
+export async function fetchOllamaModels(baseUrl: string, apiKey?: string): Promise<string[]> {
+  let url = `${API_BASE}/ollama/models?baseUrl=${encodeURIComponent(baseUrl)}`;
+  if (apiKey) {
+    url += `&apiKey=${encodeURIComponent(apiKey)}`;
+  }
+  const response = await fetch(url, { headers: getAuthHeaders() });
   const data = await handleResponse<{ models: string[] }>(response);
   return data.models;
 }

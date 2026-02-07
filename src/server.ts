@@ -605,7 +605,9 @@ export async function buildServer(): Promise<FastifyInstance> {
   });
 
   // Ollama/superproxy dynamic model listing
-  server.get<{ Querystring: { baseUrl?: string } }>('/api/ollama/models', async (request, reply) => {
+  // Fetches from the superproxy's OpenAI-compatible /v1/models endpoint.
+  // Requires the superproxy master API key (stored as an "ollama" vendor key in keyring-proxy).
+  server.get<{ Querystring: { baseUrl?: string; apiKey?: string } }>('/api/ollama/models', async (request, reply) => {
     const baseUrl = request.query.baseUrl;
     if (!baseUrl) {
       reply.code(400);
@@ -613,10 +615,17 @@ export async function buildServer(): Promise<FastifyInstance> {
     }
 
     try {
-      const url = new URL('/models', baseUrl);
+      // Append /models to the base URL, preserving path (e.g. /v1 → /v1/models)
+      const url = baseUrl.replace(/\/+$/, '') + '/models';
       const controller = new AbortController();
       const timeout = setTimeout(() => { controller.abort(); }, 5000);
-      const response = await fetch(url.toString(), { signal: controller.signal });
+
+      const headers: Record<string, string> = {};
+      if (request.query.apiKey) {
+        headers['Authorization'] = `Bearer ${request.query.apiKey}`;
+      }
+
+      const response = await fetch(url, { signal: controller.signal, headers });
       clearTimeout(timeout);
 
       if (!response.ok) {
