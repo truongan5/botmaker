@@ -199,6 +199,26 @@ describe('templates', () => {
       expect(veniceProxy.api).toBe('openai-completions');
     });
 
+    it('should use openai-completions API type for grok with proxy', () => {
+      const config = createTestConfig({
+        aiProvider: 'grok',
+        model: 'grok-4-1-fast',
+        proxy: {
+          baseUrl: 'http://proxy:9101/v1/grok',
+          token: 'proxy-token-123',
+        },
+      });
+      createBotWorkspace(testDir, config);
+
+      const openclawPath = join(testDir, 'bots', config.botHostname, 'openclaw.json');
+      const openclawConfig = JSON.parse(readFileSync(openclawPath, 'utf-8')) as Record<string, unknown>;
+      const models = openclawConfig.models as Record<string, unknown>;
+      const providers = models.providers as Record<string, unknown>;
+      const grokProxy = providers['grok-proxy'] as Record<string, unknown>;
+
+      expect(grokProxy.api).toBe('openai-completions');
+    });
+
     it('should include persona in workspace files', () => {
       const config = createTestConfig({
         persona: {

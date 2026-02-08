@@ -64,6 +64,7 @@ export function getApiTypeForProvider(provider: string): string {
     case 'venice':
     case 'openrouter':
     case 'ollama':
+    case 'grok':
       return 'openai-completions'; // OpenAI-compatible APIs
     case 'openai':
     default:
