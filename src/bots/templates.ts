@@ -16,12 +16,17 @@ function tryChown(path: string, uid: number, gid: number): void {
   try {
     chownSync(path, uid, gid);
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'EPERM') {
-      // Not running as root - skip chown (acceptable in dev/CI)
-      return;
-    }
+    if ((err as NodeJS.ErrnoException).code === 'EPERM') return;
     throw err;
   }
+}
+
+const OPENCLAW_UID = 1000;
+const OPENCLAW_GID = 1000;
+
+function setOwnership(path: string, mode: number): void {
+  chmodSync(path, mode);
+  tryChown(path, OPENCLAW_UID, OPENCLAW_GID);
 }
 
 export interface BotPersona {
@@ -195,47 +200,25 @@ function generateIdentityMd(persona: BotPersona): string {
 export function createBotWorkspace(dataDir: string, config: BotWorkspaceConfig): void {
   const botDir = join(dataDir, 'bots', config.botHostname);
   const workspaceDir = join(botDir, 'workspace');
+  const agentDir = join(botDir, 'agents', 'main', 'agent');
+  const sessionsDir = join(botDir, 'agents', 'main', 'sessions');
+  const sandboxDir = join(botDir, 'sandbox');
 
-  // OpenClaw runs as uid 1000 (node user), so we need to set ownership
-  const OPENCLAW_UID = 1000;
-  const OPENCLAW_GID = 1000;
+  for (const dir of [botDir, workspaceDir, agentDir, sessionsDir, sandboxDir]) {
+    mkdirSync(dir, { recursive: true, mode: 0o755 });
+    setOwnership(dir, 0o755);
+  }
 
-  mkdirSync(botDir, { recursive: true, mode: 0o755 });
-  mkdirSync(workspaceDir, { recursive: true, mode: 0o755 });
-  chmodSync(botDir, 0o755);
-  chmodSync(workspaceDir, 0o755);
-  tryChown(botDir, OPENCLAW_UID, OPENCLAW_GID);
-  tryChown(workspaceDir, OPENCLAW_UID, OPENCLAW_GID);
-
-  const openclawConfig = generateOpenclawConfig(config);
   const configPath = join(botDir, 'openclaw.json');
-  writeFileSync(configPath, JSON.stringify(openclawConfig, null, 2));
-  chmodSync(configPath, 0o644);
-  tryChown(configPath, OPENCLAW_UID, OPENCLAW_GID);
+  writeFileSync(configPath, JSON.stringify(generateOpenclawConfig(config), null, 2));
+  setOwnership(configPath, 0o644);
 
   const soulPath = join(workspaceDir, 'SOUL.md');
   const identityPath = join(workspaceDir, 'IDENTITY.md');
   writeFileSync(soulPath, generateSoulMd(config.persona));
   writeFileSync(identityPath, generateIdentityMd(config.persona));
-  chmodSync(soulPath, 0o644);
-  chmodSync(identityPath, 0o644);
-  tryChown(soulPath, OPENCLAW_UID, OPENCLAW_GID);
-  tryChown(identityPath, OPENCLAW_UID, OPENCLAW_GID);
-
-  const agentDir = join(botDir, 'agents', 'main', 'agent');
-  mkdirSync(agentDir, { recursive: true, mode: 0o755 });
-  chmodSync(agentDir, 0o755);
-  tryChown(agentDir, OPENCLAW_UID, OPENCLAW_GID);
-
-  const sessionsDir = join(botDir, 'agents', 'main', 'sessions');
-  mkdirSync(sessionsDir, { recursive: true, mode: 0o755 });
-  chmodSync(sessionsDir, 0o755);
-  tryChown(sessionsDir, OPENCLAW_UID, OPENCLAW_GID);
-
-  const sandboxDir = join(botDir, 'sandbox');
-  mkdirSync(sandboxDir, { recursive: true, mode: 0o755 });
-  chmodSync(sandboxDir, 0o755);
-  tryChown(sandboxDir, OPENCLAW_UID, OPENCLAW_GID);
+  setOwnership(soulPath, 0o644);
+  setOwnership(identityPath, 0o644);
 }
 
 /**

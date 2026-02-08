@@ -131,15 +131,11 @@ function isPrivateIp(ip: string): boolean {
   const v4Mapped = ip.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i);
   const normalizedIp = v4Mapped ? v4Mapped[1] : ip;
 
-  // IPv6 loopback
   if (normalizedIp === '::1') return true;
 
-  // IPv6 link-local
-  if (normalizedIp.toLowerCase().startsWith('fe80:')) return true;
-
-  // IPv6 unique local (fc00::/7)
-  const firstChar = normalizedIp.toLowerCase();
-  if (firstChar.startsWith('fc') || firstChar.startsWith('fd')) return true;
+  const lowerIp = normalizedIp.toLowerCase();
+  if (lowerIp.startsWith('fe80:')) return true;
+  if (lowerIp.startsWith('fc') || lowerIp.startsWith('fd')) return true;
 
   const ipv4Match = normalizedIp.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (ipv4Match) {
@@ -181,9 +177,7 @@ function isPrivateUrl(urlStr: string): boolean {
     return true;
   }
 
-  if (isPrivateIp(hostname)) return true;
-
-  return false;
+  return isPrivateIp(hostname);
 }
 
 const MAX_RESPONSE_BODY_BYTES = 1024 * 1024; // 1MB
@@ -215,21 +209,18 @@ async function readLimitedBody(response: Response, maxBytes: number): Promise<st
   return new TextDecoder().decode(combined);
 }
 
-async function resolveAndValidateUrl(urlStr: string): Promise<void> {
+async function resolveAndValidateUrl(urlStr: string): Promise<{ resolvedUrl: string; originalHost: string }> {
   const parsed = new URL(urlStr);
   const hostname = parsed.hostname.replace(/^\[|\]$/g, '');
 
   // If hostname is already an IP literal, isPrivateUrl already checked it
-  if (/^[\d.]+$/.test(hostname) || hostname.includes(':')) return;
-
-  let addresses: string[];
-  try {
-    const results4 = await dns.resolve4(hostname).catch(() => [] as string[]);
-    const results6 = await dns.resolve6(hostname).catch(() => [] as string[]);
-    addresses = [...results4, ...results6];
-  } catch {
-    throw new Error('DNS resolution failed');
+  if (/^[\d.]+$/.test(hostname) || hostname.includes(':')) {
+    return { resolvedUrl: urlStr, originalHost: hostname };
   }
+
+  const results4 = await dns.resolve4(hostname).catch(() => [] as string[]);
+  const results6 = await dns.resolve6(hostname).catch(() => [] as string[]);
+  const addresses = [...results4, ...results6];
 
   if (addresses.length === 0) {
     throw new Error('DNS resolution returned no addresses');
@@ -240,6 +231,12 @@ async function resolveAndValidateUrl(urlStr: string): Promise<void> {
       throw new Error('Resolved address is private');
     }
   }
+
+  // Pin to the first resolved IP to prevent DNS rebinding
+  const pinnedIp = addresses[0];
+  const pinnedHost = pinnedIp.includes(':') ? `[${pinnedIp}]` : pinnedIp;
+  parsed.hostname = pinnedHost;
+  return { resolvedUrl: parsed.toString(), originalHost: hostname };
 }
 
 async function resolveHostPaths(config: ReturnType<typeof getConfig>): Promise<{
@@ -788,14 +785,14 @@ export async function buildServer(): Promise<FastifyInstance> {
     const timeout = setTimeout(() => { controller.abort(); }, 5000);
 
     try {
-      await resolveAndValidateUrl(url);
+      const { resolvedUrl, originalHost } = await resolveAndValidateUrl(url);
 
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = { Host: originalHost };
       if (request.body.apiKey) {
         headers.Authorization = `Bearer ${request.body.apiKey}`;
       }
 
-      const response = await fetch(url, { signal: controller.signal, headers });
+      const response = await fetch(resolvedUrl, { signal: controller.signal, headers });
 
       if (!response.ok) {
         return { models: [] };
