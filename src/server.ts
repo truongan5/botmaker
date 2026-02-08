@@ -128,7 +128,7 @@ const MODEL_REGEX = /^[a-zA-Z0-9._:/-]{1,128}$/;
 
 function isPrivateIp(ip: string): boolean {
   // Handle IPv6-mapped IPv4 (e.g., ::ffff:127.0.0.1)
-  const v4Mapped = ip.match(/^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i);
+  const v4Mapped = /^::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i.exec(ip);
   const normalizedIp = v4Mapped ? v4Mapped[1] : ip;
 
   if (normalizedIp === '::1') return true;
@@ -137,7 +137,7 @@ function isPrivateIp(ip: string): boolean {
   if (lowerIp.startsWith('fe80:')) return true;
   if (lowerIp.startsWith('fc') || lowerIp.startsWith('fd')) return true;
 
-  const ipv4Match = normalizedIp.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  const ipv4Match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(normalizedIp);
   if (ipv4Match) {
     const [, a, b, c, d] = ipv4Match.map(Number);
     if (a === 10) return true;
@@ -183,18 +183,20 @@ function isPrivateUrl(urlStr: string): boolean {
 const MAX_RESPONSE_BODY_BYTES = 1024 * 1024; // 1MB
 
 async function readLimitedBody(response: Response, maxBytes: number): Promise<string> {
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error('No response body');
+  const body = response.body;
+  if (!body) throw new Error('No response body');
+  const reader = body.getReader();
 
   const chunks: Uint8Array[] = [];
   let totalBytes = 0;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  for (;;) {
+    const result = await reader.read();
+    if (result.done) break;
+    const value = result.value as Uint8Array;
     totalBytes += value.byteLength;
     if (totalBytes > maxBytes) {
-      reader.cancel();
+      void reader.cancel();
       throw new Error('Response body exceeds size limit');
     }
     chunks.push(value);
@@ -401,7 +403,7 @@ export async function buildServer(): Promise<FastifyInstance> {
       return { error: 'Missing required field: name' };
     }
 
-    if (!/^[a-zA-Z0-9 _.\-]{1,128}$/.test(body.name)) {
+    if (!/^[a-zA-Z0-9 _.-]{1,128}$/.test(body.name)) {
       reply.code(400);
       return { error: 'Bot name must be 1-128 characters: letters, numbers, spaces, underscores, dots, hyphens' };
     }
