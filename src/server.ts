@@ -91,7 +91,7 @@ interface CreateBotBody {
   hostname: string;
   emoji: string;
   avatarUrl?: string;
-  providers?: { providerId: string; model: string; baseUrl?: string }[];
+  providers?: { providerId: string; model: string }[];
   primaryProvider?: string;
   channels?: { channelType: string; token: string }[];
   persona: {
