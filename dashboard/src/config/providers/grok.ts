@@ -4,6 +4,7 @@ export const grok: ProviderConfig = {
   id: 'grok',
   label: 'Grok (xAI)',
   baseUrl: 'https://api.x.ai/v1',
+  keyHint: 'xai-...',
   defaultModel: 'grok-4-1-fast',
   models: [
     { id: 'grok-4', label: 'Grok 4' },
