@@ -6,21 +6,29 @@
 
 import { mkdirSync, writeFileSync, chmodSync, chownSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
+import { validateHostname } from '../secrets/manager.js';
 
 /**
  * Try to change file ownership, but gracefully skip if not permitted.
  * chown requires root privileges; in CI/dev environments we may not have them.
  */
-function tryChown(path: string, uid: number, gid: number): void {
+function tryChown(path: string, uid: number, gid: number): boolean {
   try {
     chownSync(path, uid, gid);
+    return true;
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'EPERM') {
-      // Not running as root - skip chown (acceptable in dev/CI)
-      return;
-    }
+    if ((err as NodeJS.ErrnoException).code === 'EPERM') return false;
     throw err;
   }
+}
+
+const OPENCLAW_UID = 1000;
+const OPENCLAW_GID = 1000;
+
+function setOwnership(path: string, mode: number): void {
+  const owned = tryChown(path, OPENCLAW_UID, OPENCLAW_GID);
+  // If chown failed, widen permissions so container UID 1000 can still write
+  chmodSync(path, owned ? mode : mode | 0o022);
 }
 
 export interface BotPersona {
@@ -257,51 +265,25 @@ function generateIdentityMd(persona: BotPersona): string {
 export function createBotWorkspace(dataDir: string, config: BotWorkspaceConfig): void {
   const botDir = join(dataDir, 'bots', config.botHostname);
   const workspaceDir = join(botDir, 'workspace');
+  const agentDir = join(botDir, 'agents', 'main', 'agent');
+  const sessionsDir = join(botDir, 'agents', 'main', 'sessions');
+  const sandboxDir = join(botDir, 'sandbox');
 
-  // Create directories with permissions for bot container (runs as uid 1000)
-  mkdirSync(botDir, { recursive: true, mode: 0o777 });
-  mkdirSync(workspaceDir, { recursive: true, mode: 0o777 });
-  // Ensure parent dir has correct permissions (recursive: true doesn't set mode on existing dirs)
-  chmodSync(botDir, 0o777);
-  chmodSync(workspaceDir, 0o777);
+  for (const dir of [botDir, workspaceDir, agentDir, sessionsDir, sandboxDir]) {
+    mkdirSync(dir, { recursive: true, mode: 0o755 });
+    setOwnership(dir, 0o755);
+  }
 
-  // Write openclaw.json at root of bot directory (OPENCLAW_STATE_DIR)
-  const openclawConfig = generateOpenclawConfig(config);
   const configPath = join(botDir, 'openclaw.json');
-  writeFileSync(configPath, JSON.stringify(openclawConfig, null, 2));
-  chmodSync(configPath, 0o666);
+  writeFileSync(configPath, JSON.stringify(generateOpenclawConfig(config), null, 2));
+  setOwnership(configPath, 0o644);
 
-  // Write only persona files — OpenClaw's ensureAgentWorkspace() will create
-  // AGENTS.md, BOOTSTRAP.md, TOOLS.md, HEARTBEAT.md from its own templates
-  // (using writeFileIfMissing / wx flag, so our files won't be overwritten).
   const soulPath = join(workspaceDir, 'SOUL.md');
   const identityPath = join(workspaceDir, 'IDENTITY.md');
   writeFileSync(soulPath, generateSoulMd(config.persona));
   writeFileSync(identityPath, generateIdentityMd(config.persona));
-  chmodSync(soulPath, 0o666);
-  chmodSync(identityPath, 0o666);
-
-  // OpenClaw runs as uid 1000 (node user), so we need to set ownership
-  const OPENCLAW_UID = 1000;
-  const OPENCLAW_GID = 1000;
-
-  const agentDir = join(botDir, 'agents', 'main', 'agent');
-  mkdirSync(agentDir, { recursive: true, mode: 0o777 });
-  chmodSync(agentDir, 0o777);
-  tryChown(agentDir, OPENCLAW_UID, OPENCLAW_GID);
-
-  // Pre-create sessions directory for OpenClaw runtime use
-  const sessionsDir = join(botDir, 'agents', 'main', 'sessions');
-  mkdirSync(sessionsDir, { recursive: true, mode: 0o777 });
-  chmodSync(sessionsDir, 0o777);
-  tryChown(sessionsDir, OPENCLAW_UID, OPENCLAW_GID);
-
-  // Pre-create sandbox directory for OpenClaw code execution
-  // OpenClaw hardcodes /app/workspace for sandbox operations
-  const sandboxDir = join(botDir, 'sandbox');
-  mkdirSync(sandboxDir, { recursive: true, mode: 0o777 });
-  chmodSync(sandboxDir, 0o777);
-  tryChown(sandboxDir, OPENCLAW_UID, OPENCLAW_GID);
+  setOwnership(soulPath, 0o644);
+  setOwnership(identityPath, 0o644);
 }
 
 /**
@@ -323,6 +305,7 @@ export function getBotWorkspacePath(dataDir: string, hostname: string): string {
  * @param hostname - Bot hostname
  */
 export function deleteBotWorkspace(dataDir: string, hostname: string): void {
+  validateHostname(hostname);
   const botDir = join(dataDir, 'bots', hostname);
   rmSync(botDir, { recursive: true, force: true });
 }
