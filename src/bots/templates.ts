@@ -91,22 +91,25 @@ export function getApiTypeForProvider(provider: string): string {
  * Map provider to default embedding model.
  * null = provider has no OpenAI-compatible /embeddings endpoint.
  */
+const OPENAI_EMBED = 'text-embedding-3-small';
+const NOMIC_EMBED = 'nomic-embed-text';
+
 export const EMBEDDING_MODELS: Record<string, string | null> = {
-  openai: 'text-embedding-3-small',
+  openai: OPENAI_EMBED,
   mistral: 'mistral-embed',
-  deepseek: 'text-embedding-3-small',
-  ollama: 'nomic-embed-text',
-  fireworks: 'nomic-embed-text',
+  deepseek: OPENAI_EMBED,
+  ollama: NOMIC_EMBED,
+  fireworks: NOMIC_EMBED,
   togetherai: 'togethercomputer/m2-bert-80M-8k-retrieval',
   deepinfra: 'BAAI/bge-large-en-v1.5',
   nvidia: 'NV-Embed-QA',
-  grok: 'text-embedding-3-small',
-  nebius: 'text-embedding-3-small',
-  scaleway: 'text-embedding-3-small',
+  grok: OPENAI_EMBED,
+  nebius: OPENAI_EMBED,
+  scaleway: OPENAI_EMBED,
   huggingface: 'sentence-transformers/all-MiniLM-L6-v2',
   minimax: 'embo-01',
-  venice: 'text-embedding-3-small',
-  openrouter: 'openai/text-embedding-3-small',
+  venice: OPENAI_EMBED,
+  openrouter: `openai/${OPENAI_EMBED}`,
   // No embedding support
   anthropic: null,
   google: null,
