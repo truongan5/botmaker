@@ -12,11 +12,12 @@ import { validateHostname } from '../secrets/manager.js';
  * Try to change file ownership, but gracefully skip if not permitted.
  * chown requires root privileges; in CI/dev environments we may not have them.
  */
-function tryChown(path: string, uid: number, gid: number): void {
+function tryChown(path: string, uid: number, gid: number): boolean {
   try {
     chownSync(path, uid, gid);
+    return true;
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'EPERM') return;
+    if ((err as NodeJS.ErrnoException).code === 'EPERM') return false;
     throw err;
   }
 }
@@ -25,8 +26,9 @@ const OPENCLAW_UID = 1000;
 const OPENCLAW_GID = 1000;
 
 function setOwnership(path: string, mode: number): void {
-  chmodSync(path, mode);
-  tryChown(path, OPENCLAW_UID, OPENCLAW_GID);
+  const owned = tryChown(path, OPENCLAW_UID, OPENCLAW_GID);
+  // If chown failed, widen permissions so container UID 1000 can still write
+  chmodSync(path, owned ? mode : mode | 0o022);
 }
 
 export interface BotPersona {
