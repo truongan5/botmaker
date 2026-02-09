@@ -120,6 +120,10 @@ export const EMBEDDING_MODELS: Record<string, string | null> = {
   ovhcloud: null,
 };
 
+export type MemorySearchConfig =
+  | { enabled: false }
+  | { provider: 'openai'; model: string; remote: { baseUrl: string; apiKey: string } };
+
 /**
  * Build memorySearch config for openclaw.json.
  * Returns embedding endpoint config for providers with /embeddings support,
@@ -128,7 +132,7 @@ export const EMBEDDING_MODELS: Record<string, string | null> = {
 export function getMemorySearchConfig(
   provider: string,
   proxy?: ProxyConfig,
-): object {
+): MemorySearchConfig {
   const embeddingModel = EMBEDDING_MODELS[provider];
 
   if (!embeddingModel || !proxy) {
